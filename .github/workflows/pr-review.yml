@@ -1,0 +1,68 @@
+name: Gemini PR Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR Diff
+        id: get_diff
+        run: |
+          # Get git diff between base and head branches
+          git diff origin/${{ github.base_ref }}...origin/${{ github.head_ref }} > diff.txt
+
+          # Check if diff content is not empty
+          if [ ! -s diff.txt ]; then
+            echo "No changes found."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Review Code with Gemini
+        if: steps.get_diff.outputs.has_changes == 'true'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Limit diff payload size (first 30,000 characters) to avoid API limits
+          DIFF_CONTENT=$(head -c 30000 diff.txt)
+
+          # Send request to Gemini API
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d @- <<EOF
+          {
+            "contents": [{
+              "parts": [{
+                "text": "You are an expert Senior Code Reviewer. Review the following Git diff and provide a clear, constructive code review in English. Highlight any potential bugs, performance issues, security risks, or clean code improvements:\n\n${DIFF_CONTENT}"
+              }]
+            }]
+          }
+          EOF
+          )
+
+          # Extract review text from the JSON response
+          REVIEW_TEXT=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
+
+          if [ -n "$REVIEW_TEXT" ]; then
+            # Post comment to the Pull Request
+            gh pr comment $PR_NUMBER --body "### 🤖 Gemini AI Code Review
+
+          $REVIEW_TEXT"
+          else
+            echo "Failed to get review from Gemini API or response was empty."
+          fi
