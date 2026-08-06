@@ -1,11 +1,17 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 
-const X = () => {
+const Page = (props: any) => {
+  const handleClick = (e: any) => {
+    console.log("clicked", e);
+  };
+
   return (
-    <div className="text-red-500">
-      <Button>Click me</Button>
+    <div className="text-red-500" style={{ color: "red" }}>
+      <Button onClick={handleClick} style={{ padding: "0px" }}></Button>
     </div>
   );
 };
 
-export default X;
+export default Page;
