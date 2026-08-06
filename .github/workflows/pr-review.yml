@@ -57,7 +57,7 @@ jobs:
             }
           }')
 
-          HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}" -H "Content-Type: application/json" -d "$REQUEST_BODY")
+          HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}" -H "Content-Type: application/json" -d "$REQUEST_BODY")
 
           HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
           RESPONSE=$(echo "$HTTP_RESPONSE" | sed '$d')
