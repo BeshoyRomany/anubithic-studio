@@ -20,7 +20,7 @@ const Page = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch("https://api.example.com/users");
+      const response = await fetch("https://api.example.com/users12");
       const data = await response.json();
       setUsers(data);
       globalData.push(data);
