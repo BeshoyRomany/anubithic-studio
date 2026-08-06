@@ -36,83 +36,70 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # 1. Create a clean system prompt file
-          cat << 'EOF' > prompt_rubric.txt
-          You are a STRICT senior code reviewer, equivalent in rigor to CodeRabbit. You are reviewing a Git diff from a TypeScript / React / Next.js codebase.
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "GEMINI_API_KEY secret is empty or not set."
+            gh pr comment $PR_NUMBER --body $'### 🤖 Gemini AI Code Review\n\n⚠️ `GEMINI_API_KEY` repository secret is missing or empty. Add it under Settings → Secrets and variables → Actions, then re-run this check.'
+            exit 1
+          fi
 
-          You MUST flag every occurrence of the following as a BLOCKING issue (severity: blocking):
-          1. Use of `any` type anywhere (parameters, return types, generics, `as any`, `: any`). Always require explicit types.
-          2. Inline `style={{ ... }}` props used alongside Tailwind/className, or inline styles used at all when the project uses Tailwind.
-          3. Leftover `console.log`, `console.warn`, `console.error`, `debugger` statements, or commented-out dead code.
-          4. Empty function bodies, event handlers that do nothing meaningful, or components with empty JSX children.
-          5. Unused variables, unused parameters, unused imports.
-          6. Missing or weak prop typing.
-          7. Non-descriptive naming (e.g. `e`, `x`, `data`).
-          8. Missing error handling around async calls, fetches, or JSON parsing.
-          9. Accessibility issues on interactive elements.
-          10. Hardcoded secrets, API keys, or credentials.
-
-          Respond ONLY with valid JSON matching this exact schema:
-          {
-            "approved": boolean,
-            "summary": "string",
-            "walkthrough": [
-              { "area": "string", "description": "string" }
-            ],
-            "changes_table": [
-              { "file": "string", "change_summary": "string" }
-            ],
-            "issues": [
-              {
-                "severity": "blocking | warning | suggestion",
-                "file_hint": "string",
-                "line_hint": "string",
-                "title": "string",
-                "problem": "string",
-                "before_snippet": "string",
-                "after_snippet": "string"
-              }
-            ]
-          }
-          Set "approved" to false if there is ANY issue with severity "blocking".
-          EOF
-
-          PROMPT_TEXT=$(cat prompt_rubric.txt)
           DIFF_CONTENT=$(head -c 30000 diff.txt)
 
-          # 2. Safely construct JSON payload using jq
-          jq -n \
-            --arg prompt "$PROMPT_TEXT" \
-            --arg diff "$DIFF_CONTENT" \
-            '{
-              contents: [{
-                parts: [{text: ($prompt + "\n\nHere is the diff:\n\n" + $diff)}]
-              }],
-              generationConfig: {
-                responseMimeType: "application/json"
-              }
-            }' > payload.json
+          # Build the strict system/rubric prompt as a JSON-safe string via jq
+          PROMPT=$(jq -n --arg diff "$DIFF_CONTENT" '
+          ($diff) as $d |
+          "You are a STRICT senior code reviewer, equivalent in rigor and output style to CodeRabbit. You are reviewing a Git diff from a TypeScript / React / Next.js codebase.\n\nYou MUST flag every occurrence of the following as a BLOCKING issue (severity: blocking). Do not soften, do not skip, do not give benefit of the doubt:\n\n1. Use of `any` type anywhere (parameters, return types, generics, `as any`, `: any`). Always require an explicit, specific type.\n2. Inline `style={{ ... }}` props used alongside Tailwind/className, or inline styles used at all when the project uses Tailwind. Require Tailwind classes or a stylesheet instead.\n3. Leftover `console.log`, `console.warn`, `console.error`, `debugger` statements, or commented-out dead code.\n4. Empty or no-op function bodies, event handlers that do nothing meaningful (e.g. a Button with an onClick that only logs), or components with empty JSX children that appear unfinished (e.g. `<Button></Button>` with no label, icon, or children).\n5. Unused variables, unused function parameters, unused imports.\n6. Missing or weak prop typing: props typed as `any`, missing an interface/type for component props, or destructured props with no type at all.\n7. Non-descriptive naming (e.g. `e`, `x`, `data` for anything beyond a trivial one-line arrow function).\n8. Missing error handling around async calls, fetches, or JSON parsing.\n9. Accessibility issues on interactive elements (buttons/links with no discernible text, label, or aria-label).\n10. Hardcoded secrets, API keys, or credentials.\n11. Duplicate logic that should be extracted/reused.\n12. Direct DOM manipulation in React (document.querySelector, getElementById) instead of refs/state.\n\nFor EVERY issue found, cite the exact line/snippet from the diff and explain why it is a problem, then provide a corrected code snippet.\n\nRespond with ONLY a JSON object, matching exactly this schema:\n{\n  \"approved\": boolean,\n  \"summary\": string,\n  \"walkthrough\": [\n    { \"area\": string, \"description\": string }\n  ],\n  \"changes_table\": [\n    { \"file\": string, \"change_summary\": string }\n  ],\n  \"issues\": [\n    {\n      \"severity\": \"blocking\" | \"warning\" | \"suggestion\",\n      \"file_hint\": string,\n      \"line_hint\": string,\n      \"title\": string,\n      \"problem\": string,\n      \"before_snippet\": string,\n      \"after_snippet\": string\n    }\n  ]\n}\n\nField guidance:\n- \"summary\": 2-4 sentences, high level, what this PR does overall.\n- \"walkthrough\": 2-6 bullet-style entries grouping the conceptual changes (e.g. area = a component or concern, description = what changed and why it matters), written like a PR walkthrough, not a diff dump.\n- \"changes_table\": one row per changed file with a one-line description of what changed in that file.\n- \"issues[].before_snippet\": the exact problematic code from the diff (short, just the relevant lines).\n- \"issues[].after_snippet\": your corrected replacement for that exact snippet, same language, ready to paste in.\n- \"issues[].line_hint\": approximate line number or location description if known, else empty string.\n\nSet \"approved\" to false if there is ANY issue with severity \"blocking\". Only set \"approved\" to true if there are zero blocking issues. Be exhaustive — under-reporting is a failure on your part.\n\nHere is the diff:\n\n" + $d
+          ')
 
-          # 3. Send request to Gemini API
-          RESPONSE=$(curl -s -X POST "[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$){GEMINI_API_KEY}" \
+          REQUEST_BODY=$(jq -n --arg prompt "$PROMPT" '{
+            contents: [{parts: [{text: $prompt}]}],
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
+          }')
+
+          HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}" \
             -H "Content-Type: application/json" \
-            -d @payload.json)
+            -d "$REQUEST_BODY")
+
+          HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
+          RESPONSE=$(echo "$HTTP_RESPONSE" | sed '$d')
+
+          echo "Gemini API HTTP status: $HTTP_STATUS"
+          echo "Gemini API raw response:"
+          echo "$RESPONSE"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            API_ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // "Unknown error"')
+            COMMENT_BODY=$(printf '### 🤖 Gemini AI Code Review\n\n⚠️ Gemini API request failed with HTTP %s: %s\n\nFailing the check so this does not merge silently. Check the workflow run logs for the full response.' "$HTTP_STATUS" "$API_ERROR_MSG")
+            gh pr comment $PR_NUMBER --body "$COMMENT_BODY"
+            exit 1
+          fi
+
+          BLOCK_REASON=$(echo "$RESPONSE" | jq -r '.promptFeedback.blockReason // empty')
+          if [ -n "$BLOCK_REASON" ]; then
+            COMMENT_BODY=$(printf '### 🤖 Gemini AI Code Review\n\n⚠️ Gemini blocked this request (reason: %s), likely a safety filter on the diff content. Failing the check, please review manually.' "$BLOCK_REASON")
+            gh pr comment $PR_NUMBER --body "$COMMENT_BODY"
+            exit 1
+          fi
 
           RAW_TEXT=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
 
           if [ -z "$RAW_TEXT" ]; then
-            echo "API Response failed or empty. Full response from Gemini:"
-            echo "$RESPONSE"
-            gh pr comment $PR_NUMBER --body $'### 🤖 Gemini AI Code Review\n\n⚠️ Review failed to run. Check GitHub Actions run logs for details.'
+            FINISH_REASON=$(echo "$RESPONSE" | jq -r '.candidates[0].finishReason // "unknown"')
+            COMMENT_BODY=$(printf '### 🤖 Gemini AI Code Review\n\n⚠️ Gemini returned no review text (finishReason: %s). Failing the check so this does not merge silently. Check the workflow run logs for the full response.' "$FINISH_REASON")
+            gh pr comment $PR_NUMBER --body "$COMMENT_BODY"
             exit 1
           fi
 
-          echo "$RAW_TEXT" > review.json
+          # Strip ```json fences just in case, even though responseMimeType should prevent them
+          CLEAN_JSON=$(echo "$RAW_TEXT" | sed -e 's/^```json//' -e 's/^```//' -e 's/```$//')
+
+          echo "$CLEAN_JSON" > review.json
 
           if ! jq empty review.json > /dev/null 2>&1; then
-            echo "Gemini did not return valid JSON. Output was:"
+            echo "Gemini did not return valid JSON. Raw output:"
             cat review.json
-            gh pr comment $PR_NUMBER --body $'### 🤖 Gemini AI Code Review\n\n⚠️ Returned output was malformed JSON.'
+            gh pr comment $PR_NUMBER --body $'### 🤖 Gemini AI Code Review\n\n⚠️ Review returned malformed output and could not be parsed. Failing the check, please re-run.'
             exit 1
           fi
 
@@ -122,7 +109,7 @@ jobs:
           WARNING_COUNT=$(jq '[.issues[]? | select(.severity=="warning")] | length' review.json)
           SUGGESTION_COUNT=$(jq '[.issues[]? | select(.severity=="suggestion")] | length' review.json)
 
-          # Build Markdown Comment
+          # Build a CodeRabbit-style markdown comment from the JSON
           {
             echo "## 🤖 Gemini Code Review"
             echo ""
@@ -156,7 +143,7 @@ jobs:
               echo ""
               echo "| File | Change |"
               echo "|---|---|"
-              echo "| `src/app/page.tsx` | Added code pattern test |"
+              jq -r '.changes_table[]? | "| `" + .file + "` | \(.change_summary) |"' review.json
               echo ""
             fi
 
@@ -191,6 +178,8 @@ jobs:
           gh pr comment $PR_NUMBER --body-file comment.md
 
           if [ "$APPROVED" != "true" ]; then
-            echo "Blocking issues found ($BLOCKING_COUNT). Failing check."
+            echo "Blocking issues found ($BLOCKING_COUNT). Failing the check."
             exit 1
           fi
+
+          echo "No blocking issues. Check passes."
