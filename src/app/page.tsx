@@ -1,8 +1,7 @@
 "use client";
-import { useMutation, useQuery, useConvexAuth } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
-import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 export default function Page() {
   const projects = useQuery(api.projects.get);

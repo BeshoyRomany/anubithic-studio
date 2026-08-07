@@ -24,7 +24,7 @@ export const get = query({
     const identity = await ctx.auth.getUserIdentity();
 
     if (!identity) {
-      throw [];
+      return [];
     }
 
     return await ctx.db
