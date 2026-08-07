@@ -1,77 +1,23 @@
-import React, { useEffect, useState } from "react";
+"use client";
 import { Button } from "@/components/ui/button";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
-let globalData = [];
-
-const Page = () => {
-  const [users, setUsers] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [someState, setSomeState] = useState({ nested: { data: "bad" } });
-
-  useEffect(() => {
-    console.log("Component Mounted");
-    let el = document.getElementById("main-title") as any;
-    el = '<h1>Welcome, User!</h1><script>alert("XSS Attack!")</script>';
-  });
-
-  window.addEventListener("scroll", () => console.log("Scrolling..."));
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("https://api.example.com/users");
-      const data = await response.json();
-      setUsers(data);
-      globalData.push(data);
-    } catch (e) {
-      console.log("Error fetching data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClick = () => {
-    const newState = someState;
-    newState.nested.data = "worse";
-    setSomeState(newState);
-    window.alert("Button clicked via deprecated method!");
-  };
+export default function Page() {
+  const projects = useQuery(api.projects.get);
+  const createProject = useMutation(api.projects.create);
 
   return (
-    <div style={{ backgroundColor: "pink", color: "black", padding: "20px" }}>
-      <h1 id="main-title" className="text-red-500">
-        Broken Page
-      </h1>
-
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <div
-          dangerouslySetInnerHTML={{
-            __html: "<h2>User List</h2><p>This might be unsafe</p>",
-          }}
-        ></div>
-      )}
-
-      <form>
-        <Button onClick={handleClick}>Click me (Will refresh page)</Button>
-      </form>
-
-      <div
-        onClick={handleClick}
-        style={{
-          cursor: "pointer",
-          textDecoration: "underline",
-          color: "blue",
-        }}
-      >
-        Click here to run deprecated code
-      </div>
+    <div className="flex flex-col gap-2 p-4">
+      <Button onClick={() => createProject({ name: "Anubithic Code" })}>
+        Add new
+      </Button>
+      {projects?.map((project) => (
+        <div className="border rounded p-2 flex flex-col" key={project._id}>
+          <p>{project.name}</p>
+          <p>OwnerId: {project.ownerId}</p>
+        </div>
+      ))}
     </div>
   );
-};
-
-const OldComponent = () => <div>This is dead code that should be removed.</div>;
-
-export default Page;
+}
