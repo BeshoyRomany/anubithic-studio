@@ -5,7 +5,11 @@ import { google } from "@ai-sdk/google";
 import { anthropic } from "@ai-sdk/anthropic";
 
 export const anthropicGenerate = inngest.createFunction(
-  { id: "anthropic-generate", triggers: { event: "anthropic-generate" } },
+  {
+    id: "anthropic-generate",
+    triggers: { event: "anthropic-generate" },
+    retries: 3,
+  },
   async ({ step }) => {
     await step.run("anthropic-generate", async () => {
       return await generateText({
@@ -17,7 +21,7 @@ export const anthropicGenerate = inngest.createFunction(
 );
 
 export const googleGenerate = inngest.createFunction(
-  { id: "google-generate", triggers: { event: "google/generate" } },
+  { id: "google-generate", triggers: { event: "google/generate" }, retries: 3 },
   async ({ step }) => {
     await step.run("google-generate", async () => {
       await generateText({

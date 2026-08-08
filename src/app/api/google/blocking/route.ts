@@ -1,5 +1,5 @@
 //localhost:3001/api/demo/blocking
-
+// TODO: Authentication is intentionally omitted for local demo/workshop purposes.
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 

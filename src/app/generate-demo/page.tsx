@@ -10,14 +10,20 @@ export default function DemoPage() {
 
   const handleBlocking = async () => {
     setLoading(true);
-    await fetch("/api/anthropic/blocking", { method: "POST" });
-    setLoading(false);
+    try {
+      await fetch("/api/anthropic/blocking", { method: "POST" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBackground = async () => {
     setLoading2(true);
-    await fetch("/api/anthropic/background", { method: "POST" });
-    setLoading2(false);
+    try {
+      await fetch("/api/anthropic/background", { method: "POST" });
+    } finally {
+      setLoading2(false);
+    }
   };
   return (
     <div className="p-8 space-x-4">
