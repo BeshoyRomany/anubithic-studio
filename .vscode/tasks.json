@@ -1,0 +1,61 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev: All",
+      "dependsOn": ["Dev: Next", "Dev: Inngest", "Dev: Convex"],
+      "dependsOrder": "parallel",
+      "runOptions": {
+        "reevaluateOnRerun": true
+      },
+      "presentation": {
+        "reveal": "never"
+      }
+    },
+    {
+      "type": "shell",
+      "command": "npm run dev",
+      "label": "Dev: Next",
+      "isBackground": true,
+      "icon": {
+        "id": "globe",
+        "color": "terminal.ansiBlue"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "group": "next-group"
+      }
+    },
+    {
+      "type": "shell",
+      "command": "npx inngest-cli@latest dev --no-discovery -u https://localhost:3001/api/inngest",
+      "label": "Dev: Inngest",
+      "isBackground": true,
+      "icon": {
+        "id": "zap",
+        "color": "terminal.ansiGreen"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "group": "inngest-group"
+      }
+    },
+    {
+      "type": "shell",
+      "command": "npx convex dev",
+      "label": "Dev: Convex",
+      "isBackground": true,
+      "icon": {
+        "id": "database",
+        "color": "terminal.ansiMagenta"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "group": "convex-group"
+      }
+    }
+  ]
+}
