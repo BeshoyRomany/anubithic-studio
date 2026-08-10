@@ -11,7 +11,7 @@ export default function DemoPage() {
   const handleBlocking = async () => {
     setLoading(true);
     try {
-      await fetch("/api/anthropic/blocking", { method: "POST" });
+      await fetch("/api/google/blocking", { method: "POST" });
     } finally {
       setLoading(false);
     }
@@ -20,7 +20,7 @@ export default function DemoPage() {
   const handleBackground = async () => {
     setLoading2(true);
     try {
-      await fetch("/api/anthropic/background", { method: "POST" });
+      await fetch("/api/google/background", { method: "POST" });
     } finally {
       setLoading2(false);
     }

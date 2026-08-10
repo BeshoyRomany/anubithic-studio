@@ -23,6 +23,7 @@
     "convex": "^1.43.0",
     "date-fns": "^4.4.0",
     "embla-carousel-react": "^8.6.0",
+    "firecrawl": "^1.21.1",
     "inngest": "^4.18.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.28.0",
