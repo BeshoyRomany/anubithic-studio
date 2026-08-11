@@ -2,9 +2,13 @@
 import { serve } from "inngest/next";
 
 import { inngest } from "@/inngest/client";
-import { anthropicGenerate, googleGenerate } from "@/inngest/functions";
+import {
+  anthropicGenerate,
+  demoError,
+  googleGenerate,
+} from "@/inngest/functions";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [googleGenerate, anthropicGenerate],
+  functions: [googleGenerate, anthropicGenerate, demoError],
 });

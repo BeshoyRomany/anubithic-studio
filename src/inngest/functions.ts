@@ -4,11 +4,12 @@ import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { anthropic } from "@ai-sdk/anthropic";
 import { firecrawl } from "@/lib/firecrawl";
+import { sentryMiddleware } from "@inngest/middleware-sentry";
 
 const URL_REGEX = /https?:\/\/[^\s]+/g;
 
 export const googleGenerate = inngest.createFunction(
-  { id: "google-generate", triggers: { event: "google/generate" }, retries: 3 },
+  { id: "google-generate", triggers: { event: "google/generate" }, retries: 0 },
 
   //Steps
   //1- extract all the urls from the user prompt
@@ -59,6 +60,11 @@ export const googleGenerate = inngest.createFunction(
       return await generateText({
         model: google("gemini-3.5-flash"),
         prompt: finalPrompt,
+        experimental_telemetry: {
+          isEnabled: true,
+          recordInputs: true,
+          recordOutputs: true,
+        },
       });
     });
   },
@@ -75,7 +81,25 @@ export const anthropicGenerate = inngest.createFunction(
       return await generateText({
         model: anthropic("claude-haiku-4-5"),
         prompt: "Write a vegetarian lasagna recipe for 4 people.",
+        experimental_telemetry: {
+          isEnabled: true,
+          recordInputs: true,
+          recordOutputs: true,
+        },
       });
+    });
+  },
+);
+
+export const demoError = inngest.createFunction(
+  {
+    id: "demo-error",
+    triggers: { event: "demo/error" },
+    retries: 1,
+  },
+  async ({ step }) => {
+    await step.run("fail", async () => {
+      throw new Error("Inngest error: Background job failed!");
     });
   },
 );
