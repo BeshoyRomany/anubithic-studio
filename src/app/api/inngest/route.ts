@@ -1,6 +1,5 @@
 //dashboard -> api/inngest/route
 import { serve } from "inngest/next";
-
 import { inngest } from "@/inngest/client";
 import {
   anthropicGenerate,

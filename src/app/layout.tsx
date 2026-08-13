@@ -2,6 +2,7 @@ import Providers from "@/components/providers";
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Inter } from "next/font/google";
 import "./globals.css";
+import { CommandShortcutHandler } from "@/components/command-shortcut-handler";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -15,7 +16,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Anubithic Studio | Browser-Based AI Code Editor",
+  title: "Anubithic/Studio | Browser-Based AI Code Editor",
   description:
     "Anubithic Studio is a cloud-based AI code editor that lets you build, edit, and deploy web applications directly from your browser.",
 };
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${plexMono.variable} antialiased`}>
+        <CommandShortcutHandler />
         <Providers>{children}</Providers>
       </body>
     </html>
