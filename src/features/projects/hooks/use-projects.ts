@@ -15,20 +15,33 @@ export const useCreateProject = () => {
   const { userId } = useAuth();
   return useMutation(api.projects.create).withOptimisticUpdate(
     (localStore, args) => {
+      const now = Date.now();
+      const newProject = {
+        _id: crypto.randomUUID() as Id<"projects">,
+        _creationTime: now,
+        name: args.name,
+        ownerId: userId || "anonymous",
+        updatedAt: now,
+      };
+
       const existingProjects = localStore.getQuery(api.projects.get);
-      // if existingProject not undefined means (loading)
+
       if (existingProjects !== undefined) {
-        const now = Date.now();
-        const newProject = {
-          _id: crypto.randomUUID() as Id<"projects">,
-          _creationTime: now,
-          name: args.name,
-          ownerId: "anonymous",
-          updatedAt: now,
-        };
         localStore.setQuery(api.projects.get, {}, [
           newProject,
           ...existingProjects,
+        ]);
+      }
+
+      const limit = 6;
+      const existingPartial = localStore.getQuery(api.projects.getPartial, {
+        limit,
+      });
+
+      if (existingPartial !== undefined) {
+        localStore.setQuery(api.projects.getPartial, { limit }, [
+          newProject,
+          ...existingPartial,
         ]);
       }
     },
