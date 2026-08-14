@@ -51,15 +51,16 @@ export const ProjectsView = () => {
               <img
                 src={"/logo.svg"}
                 alt="Anubithic"
-                className="size-10 md:size-11.5"
+                className="size-11 md:size-12"
               />
               <h1
                 className={cn(
-                  "text-xl md:text-2xl font-semibold",
+                  "text-2xl md:text-3xl font-semibold",
                   font.className,
                 )}
               >
-                Anubithic/Studio
+                Anubithic/
+                <pre className="text-logo  font-light inline-block">Studio</pre>
               </h1>
             </div>
           </div>
