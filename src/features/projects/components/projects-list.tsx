@@ -5,10 +5,9 @@ import { useIsMac } from "@/hooks/useIsMac";
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertCircleIcon,
-  ArrowRightCircle,
   ArrowRightIcon,
   GlobeIcon,
-  Loader2Icon,
+  LoaderIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { FaGithub } from "react-icons/fa";
@@ -30,7 +29,7 @@ const getProjectIcon = (project: Doc<"projects">) => {
   }
   if (project.importStatus === "importing") {
     return (
-      <Loader2Icon className="size-3.5 text-muted-foreground shrink-0 animate-spin" />
+      <LoaderIcon className="size-3.5 text-muted-foreground shrink-0 animate-spin" />
     );
   }
   return <GlobeIcon className="size-3.5 text-muted-foreground shrink-0" />;
