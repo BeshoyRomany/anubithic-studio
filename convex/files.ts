@@ -117,7 +117,7 @@ export const getFolderContents = query({
   },
 });
 
-// Creates a new file within a project or parent folder while preventing duplicate names.
+// Creates a new file within a project or parent folder while preventing duplicate names and validating parent ownership.
 //#createFile -> by projectId, parentId, name & content with avoiding name duplication
 export const createFile = mutation({
   args: {
@@ -140,6 +140,26 @@ export const createFile = mutation({
     // -- check if the user has access to this project
     if (project.ownerId !== identity.subject) {
       throw new Error("Unauthorized access to this project!");
+    }
+
+    // -- Validate parent folder if provided
+    if (args.parentId) {
+      const parent = await ctx.db.get(args.parentId);
+
+      // 1. Check if the parent item actually exists
+      if (!parent) {
+        throw new Error("Parent folder not found!");
+      }
+
+      // 2. Ensure the parent belongs to the exact same project
+      if (parent.projectId !== args.projectId) {
+        throw new Error("Parent folder belongs to a different project!");
+      }
+
+      // 3. Ensure the parent is a folder, not a file
+      if (parent.type !== "folder") {
+        throw new Error("Cannot create items inside a file!");
+      }
     }
 
     //  get all the files at the same location by passing project id and parentId if it's exist
@@ -179,7 +199,7 @@ export const createFile = mutation({
   },
 });
 
-// Creates a new folder within a project or parent directory while preventing duplicate names.
+// Creates a new folder within a project or parent directory while preventing duplicate names and validating parent ownership.
 //#createFolder -> by projectId, parentId, name & content with avoiding name duplication
 export const createFolder = mutation({
   args: {
@@ -202,6 +222,26 @@ export const createFolder = mutation({
     // -- check if the user has access to this project
     if (project.ownerId !== identity.subject) {
       throw new Error("Unauthorized access to this project!");
+    }
+
+    // -- Validate parent folder if provided
+    if (args.parentId) {
+      const parent = await ctx.db.get(args.parentId);
+
+      // 1. Check if the parent item actually exists
+      if (!parent) {
+        throw new Error("Parent folder not found!");
+      }
+
+      // 2. Ensure the parent belongs to the exact same project
+      if (parent.projectId !== args.projectId) {
+        throw new Error("Parent folder belongs to a different project!");
+      }
+
+      // 3. Ensure the parent is a folder, not a file
+      if (parent.type !== "folder") {
+        throw new Error("Cannot create folders inside a file!");
+      }
     }
 
     // get all the folder at the same location by passing project id and parentId if it's exist
@@ -239,7 +279,6 @@ export const createFolder = mutation({
     });
   },
 });
-
 // Renames an existing file or folder while checking for name conflicts among siblings.
 //#renameFile -> by fileId, newName -- not with projectId Or ParentId --because the file we gonna fetch holds parentId & projectId
 export const renameFile = mutation({
@@ -376,7 +415,7 @@ export const deleteFile = mutation({
       await ctx.db.delete("files", fileId);
     };
     //Fire the delete Recursive on files/folders
-    deleteRecursive(args.id);
+    await deleteRecursive(args.id);
 
     //update the project also -- because deleting a file in a project means the project got update also
     await ctx.db.patch("projects", project._id, {
