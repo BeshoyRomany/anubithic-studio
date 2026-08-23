@@ -12,10 +12,11 @@ import { getItemPadding } from "./constants";
 import { LoadingRow } from "./loading-row";
 import { CreateInput } from "./create-input";
 import { Doc, Id } from "../../../../../convex/_generated/dataModel";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TreeItemWrapper } from "./tree-item-wrapper";
 import { RenameInput } from "./rename-input";
 import { useEditor } from "@/features/editor/hooks/use-editor";
+import { useEditorStore } from "@/features/editor/store/use-editor-store";
 
 interface TreeProps {
   projectId: Id<"projects">;
@@ -36,6 +37,10 @@ interface TreeProps {
  *
  * 3. FOLDER NODE LIFECYCLE & STATES:
  *    - isOpen (boolean): Controls whether the folder is expanded to fetch/show contents.
+ *      It is NOT local state - it is subscribed from the shared editor store
+ *      (isFolderExpanded), so the folder can also be opened from outside this
+ *      component (e.g. the reveal-active-file flow expanding the ancestor
+ *      chain of the active file).
  *    - isRenaming (boolean): Handles inline renaming state.
  *    - creating ("file" | "folder" | null): Handles inline creation state.
  *
@@ -73,7 +78,6 @@ interface TreeProps {
 
 export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
   //states
-  const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isRenaming, setIsRenaming] = useState<boolean>(false);
   const [creating, setCreating] = useState<"file" | "folder" | null>(null);
 
@@ -82,7 +86,28 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
   const createFile = useCreateFile();
   const renameFile = useRenameFile();
   const deleteFile = useDeleteFile();
-  const { openFile, closeTab, activeTabId } = useEditor(projectId);
+  const { openFile, closeTab, activeTabId, toggleFolder, revealFolders } =
+    useEditor(projectId);
+
+  // Folder expansion lives in the shared editor store (not local state) so it
+  // can be driven from outside too - the reveal-active-file flow expands a
+  // folder chain by writing to the store, and this subscription reacts to it.
+  const isOpen = useEditorStore((state) =>
+    state.isFolderExpanded(projectId, item._id),
+  );
+
+  // DOM node of this row, used to scroll the active file into view
+  const rowRef = useRef<HTMLButtonElement | null>(null);
+
+  // Auto-scroll (VS Code style): whenever this file row becomes active -
+  // including the moment it mounts as already-active after the tree
+  // expanded down to it - bring it into view. "block: nearest" scrolls the
+  // minimal amount, so rows already on screen don't jump around.
+  useEffect(() => {
+    if (activeTabId !== item._id) return;
+    rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [activeTabId, item._id]);
+
   // Get children items only if this item is a folder and it is open
   const folderContents = useFolderContents({
     projectId,
@@ -116,7 +141,9 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
     renameFile({ id: item._id, newName });
   };
   const startCreating = (type: "file" | "folder") => {
-    setIsOpen(true);
+    // Creating inside a folder needs it open first - revealFolders with a
+    // single id acts as "ensure expanded" (it never collapses)
+    revealFolders([item._id]);
     setCreating(type);
   };
 
@@ -141,6 +168,7 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
         item={item}
         level={level}
         isActive={isActive}
+        ref={rowRef}
         onClick={() => openFile(item._id, { pinned: false })}
         onDoubleClick={() => openFile(item._id, { pinned: true })}
         onRename={() => setIsRenaming(true)}
@@ -177,7 +205,7 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
     return (
       <>
         <button
-          onClick={() => setIsOpen((value) => !value)}
+          onClick={() => toggleFolder(item._id)}
           className="group flex items-center gap-1 h-5.5 hover:bg-accent/30 w-full"
           style={{ paddingLeft: getItemPadding(level, false) }}
         >
@@ -240,7 +268,7 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
         item={item}
         level={level}
         isActive={false}
-        onClick={() => setIsOpen((value) => !value)}
+        onClick={() => toggleFolder(item._id)}
         onDoubleClick={() => {}}
         onRename={() => setIsRenaming(true)}
         onDelete={() => {

@@ -17,6 +17,9 @@ interface TreeItemWrapperProps {
   children: React.ReactNode;
   level: number;
   isActive?: boolean;
+  // Forwarded to the row <button>. Lets callers grab the DOM node, e.g. to
+  // scroll the active file row into view when the tree reveals it.
+  ref?: React.Ref<HTMLButtonElement>;
   onClick?: () => void;
   onDoubleClick?: () => void;
   onRename?: () => void;
@@ -30,6 +33,7 @@ export const TreeItemWrapper = ({
   children,
   level,
   isActive,
+  ref,
   onClick,
   onDoubleClick,
   onRename,
@@ -42,6 +46,7 @@ export const TreeItemWrapper = ({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <button
+          ref={ref}
           onClick={onClick}
           onDoubleClick={onDoubleClick}
           onKeyDown={(e) => {

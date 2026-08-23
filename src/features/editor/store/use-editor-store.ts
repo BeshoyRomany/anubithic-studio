@@ -16,12 +16,63 @@ const defaultTabState: TabState = {
   previewTabId: null,
 };
 
+// Tree-explorer state for a single project: whether the explorer root (the
+// project-name header row) is expanded, and which folders are expanded
+interface ExplorerState {
+  rootOpen: boolean;
+  expandedFolders: Set<Id<"files">>;
+}
+
+// Used when a project has no explorer state yet (fresh tree = root open)
+const defaultExplorerState: ExplorerState = {
+  rootOpen: true,
+  expandedFolders: new Set(),
+};
+
 interface EditorStore {
   // Each project gets its own tab state, stored by project id
   tabs: Map<Id<"projects">, TabState>;
 
+  // Each project gets its own tree-explorer state, stored by project id.
+  // Expansion lives here (not in local Tree state) so the tree can be
+  // controlled from outside - e.g. auto-revealing the active file.
+  explorerStates: Map<Id<"projects">, ExplorerState>;
+
   // Get the tab state for one project (or the default if none exists yet)
   getTabState: (projectId: Id<"projects">) => TabState;
+
+  // Get the explorer state for one project (or the default if none exists yet)
+  getExplorerState: (projectId: Id<"projects">) => ExplorerState;
+
+  // Check whether one folder is currently expanded in a project.
+  // Meant to be used as a Zustand selector:
+  //   useEditorStore((s) => s.isFolderExpanded(projectId, folderId))
+  // so the component re-renders when this folder's expansion changes.
+  isFolderExpanded: (
+    projectId: Id<"projects">,
+    folderId: Id<"files">,
+  ) => boolean;
+
+  // Toggle the explorer root (project-name header) open/closed
+  toggleExplorerRoot: (projectId: Id<"projects">) => void;
+
+  // Ensure the explorer root is open (e.g. before creating a root item)
+  openExplorerRoot: (projectId: Id<"projects">) => void;
+
+  // Toggle one folder open/closed (used by the folder row click in the tree)
+  toggleFolder: (projectId: Id<"projects">, folderId: Id<"files">) => void;
+
+  // Expand a chain of folders at once (root header -> folders -> ... -> direct
+  // parent of the active file). Never collapses anything: folders the user
+  // opened by hand stay open. This is the core of the "reveal active file"
+  // behavior - it also opens the explorer root so the chain is visible.
+  revealFolders: (
+    projectId: Id<"projects">,
+    folderIds: Id<"files">[],
+  ) => void;
+
+  // Collapse every folder in a project (the collapse-all tree button)
+  collapseAllFolders: (projectId: Id<"projects">) => void;
 
   // Open a file in a project. If "pinned" is false, it opens as a preview
   // tab (replaces any existing preview). If "pinned" is true, it opens as
@@ -44,9 +95,98 @@ interface EditorStore {
 
 export const useEditorStore = create<EditorStore>()((set, get) => ({
   tabs: new Map(),
+  explorerStates: new Map(),
 
   getTabState: (projectId) => {
     return get().tabs.get(projectId) ?? defaultTabState;
+  },
+
+  getExplorerState: (projectId) => {
+    return get().explorerStates.get(projectId) ?? defaultExplorerState;
+  },
+
+  isFolderExpanded: (projectId, folderId) => {
+    return get().explorerStates.get(projectId)?.expandedFolders.has(folderId) ?? false;
+  },
+
+  toggleExplorerRoot: (projectId) => {
+    // Copy the map so Zustand/React notices the state changed
+    const explorerStates = new Map(get().explorerStates);
+    const state = explorerStates.get(projectId) ?? defaultExplorerState;
+
+    explorerStates.set(projectId, {
+      ...state,
+      rootOpen: !state.rootOpen,
+    });
+    set({ explorerStates });
+  },
+
+  openExplorerRoot: (projectId) => {
+    // Copy the map so Zustand/React notices the state changed
+    const explorerStates = new Map(get().explorerStates);
+    const state = explorerStates.get(projectId) ?? defaultExplorerState;
+
+    // Nothing to do if the root is already open
+    if (state.rootOpen) return;
+
+    explorerStates.set(projectId, { ...state, rootOpen: true });
+    set({ explorerStates });
+  },
+
+  toggleFolder: (projectId, folderId) => {
+    // Copy the map (and the inner set) so Zustand/React notices the change
+    const explorerStates = new Map(get().explorerStates);
+    const state = explorerStates.get(projectId) ?? defaultExplorerState;
+    const expandedFolders = new Set<Id<"files">>(state.expandedFolders);
+
+    // Flip this one folder's state
+    if (expandedFolders.has(folderId)) {
+      expandedFolders.delete(folderId);
+    } else {
+      expandedFolders.add(folderId);
+    }
+
+    explorerStates.set(projectId, { ...state, expandedFolders });
+    set({ explorerStates });
+  },
+
+  revealFolders: (projectId, folderIds) => {
+    // Copy the map (and the inner set) so Zustand/React notices the change
+    const explorerStates = new Map(get().explorerStates);
+    const state = explorerStates.get(projectId) ?? defaultExplorerState;
+    const expandedFolders = new Set<Id<"files">>(state.expandedFolders);
+
+    // Union in every folder along the path. Idempotent: already-expanded
+    // folders are skipped, so calling this repeatedly is safe and never
+    // collapses folders the user opened manually. The explorer root opens
+    // too, so the revealed chain is actually visible.
+    let changed = !state.rootOpen;
+    for (const folderId of folderIds) {
+      if (!expandedFolders.has(folderId)) {
+        expandedFolders.add(folderId);
+        changed = true;
+      }
+    }
+
+    // Skip the state update if nothing actually changed (avoids useless
+    // re-renders every time the active tab fires the reveal effect)
+    if (!changed) return;
+
+    explorerStates.set(projectId, { rootOpen: true, expandedFolders });
+    set({ explorerStates });
+  },
+
+  collapseAllFolders: (projectId) => {
+    // Copy the map so Zustand/React notices the change
+    const explorerStates = new Map(get().explorerStates);
+    const state = explorerStates.get(projectId) ?? defaultExplorerState;
+
+    // Keep the root's own state, snap every folder shut
+    explorerStates.set(projectId, {
+      rootOpen: state.rootOpen,
+      expandedFolders: new Set(),
+    });
+    set({ explorerStates });
   },
 
   openFile: (projectId, fileId, { pinned }) => {

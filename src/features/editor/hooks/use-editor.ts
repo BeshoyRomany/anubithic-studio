@@ -30,6 +30,32 @@ export const useEditor = (projectId: Id<"projects">) => {
     [store, projectId],
   );
 
+  const toggleFolder = useCallback(
+    (folderId: Id<"files">) => {
+      store.toggleFolder(projectId, folderId);
+    },
+    [store, projectId],
+  );
+
+  const toggleExplorerRoot = useCallback(() => {
+    store.toggleExplorerRoot(projectId);
+  }, [store, projectId]);
+
+  const openExplorerRoot = useCallback(() => {
+    store.openExplorerRoot(projectId);
+  }, [store, projectId]);
+
+  const revealFolders = useCallback(
+    (folderIds: Id<"files">[]) => {
+      store.revealFolders(projectId, folderIds);
+    },
+    [store, projectId],
+  );
+
+  const collapseAllFolders = useCallback(() => {
+    store.collapseAllFolders(projectId);
+  }, [store, projectId]);
+
   return {
     openTabs: tabState.openTabs,
     activeTabId: tabState.activeTabId,
@@ -38,5 +64,10 @@ export const useEditor = (projectId: Id<"projects">) => {
     closeTab,
     closeAllTabs,
     setActiveTab,
+    toggleFolder,
+    toggleExplorerRoot,
+    openExplorerRoot,
+    revealFolders,
+    collapseAllFolders,
   };
 };
