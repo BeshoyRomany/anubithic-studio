@@ -51,7 +51,7 @@ export const ProjectsView = () => {
               <img
                 src={"/logo.svg"}
                 alt="Anubithic"
-                className="size-11 md:size-12"
+                className="size-14 md:size-20"
               />
               <h1
                 className={cn(

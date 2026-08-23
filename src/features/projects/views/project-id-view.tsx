@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Allotment } from "allotment";
 import { FaGithub } from "react-icons/fa";
 import { FileExplorer } from "../components/file-explorer";
+import { EditorView } from "@/features/editor/views/editor-view";
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 800;
@@ -70,9 +71,9 @@ export const ProjectIdView = ({ projectId }: ProjectIdViewProps) => {
             >
               <FileExplorer projectId={projectId} />
             </Allotment.Pane>
-            <Allotment.Pane snap preferredSize={DEFAULT_MAIN_SIZE}>
-              <div className="px-1">
-                <p>Editor view</p>
+            <Allotment.Pane preferredSize={DEFAULT_MAIN_SIZE}>
+              <div className="h-full">
+                <EditorView projectId={projectId} />
               </div>
             </Allotment.Pane>
           </Allotment>
