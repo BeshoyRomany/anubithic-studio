@@ -15,6 +15,7 @@ import { Doc, Id } from "../../../../../convex/_generated/dataModel";
 import { useState } from "react";
 import { TreeItemWrapper } from "./tree-item-wrapper";
 import { RenameInput } from "./rename-input";
+import { useEditor } from "@/features/editor/hooks/use-editor";
 
 interface TreeProps {
   projectId: Id<"projects">;
@@ -81,6 +82,7 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
   const createFile = useCreateFile();
   const renameFile = useRenameFile();
   const deleteFile = useDeleteFile();
+  const { openFile, closeTab, activeTabId } = useEditor(projectId);
   // Get children items only if this item is a folder and it is open
   const folderContents = useFolderContents({
     projectId,
@@ -121,6 +123,7 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
   //file logic
   if (item.type === "file") {
     const fileName = item.name;
+    const isActive = activeTabId === item._id;
     if (isRenaming) {
       return (
         <RenameInput
@@ -137,12 +140,12 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
       <TreeItemWrapper
         item={item}
         level={level}
-        isActive={false}
-        onClick={() => {}}
-        onDoubleClick={() => {}}
+        isActive={isActive}
+        onClick={() => openFile(item._id, { pinned: false })}
+        onDoubleClick={() => openFile(item._id, { pinned: true })}
         onRename={() => setIsRenaming(true)}
         onDelete={() => {
-          // TODO:Close Tab
+          closeTab(item._id);
           deleteFile({ id: item._id });
         }}
       >
@@ -241,7 +244,6 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
         onDoubleClick={() => {}}
         onRename={() => setIsRenaming(true)}
         onDelete={() => {
-          // TODO:Close Tab
           deleteFile({ id: item._id });
         }}
         onCreateFile={() => startCreating("file")}

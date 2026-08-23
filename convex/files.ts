@@ -1,31 +1,32 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { verifyAuth } from "./auth";
-import { Id } from "./_generated/dataModel";
+import { Id, Doc } from "./_generated/dataModel";
 
-// Retrieves all files and folders belonging to a specific project.
-//#getFiles -> by projectId
+// Get all files and folders inside one project
+// #getFiles -> by projectId
 export const getFiles = query({
   args: {
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    //Get the ownership
+    // Check who is logged in
     const identity = await verifyAuth(ctx);
-    //Fetch the project
+
+    // Load the project
     const project = await ctx.db.get("projects", args.projectId);
 
-    // -- check if the project still exist
+    // Stop if the project does not exist
     if (!project) {
       throw new Error("Project not found!");
     }
 
-    // -- check if the user has access to this project
+    // Stop if this user does not own the project
     if (project.ownerId !== identity.subject) {
       throw new Error("Unauthorized access to this project!");
     }
 
-    //Get the files by passing projectId
+    // Return all files under this project, newest first
     return await ctx.db
       .query("files")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -34,66 +35,141 @@ export const getFiles = query({
   },
 });
 
-// Retrieves a single file or folder by its unique ID with ownership verification.
-//#getFile -> by Id
-export const getFile = query({
+/*
+  Why getFilePath works this way:
+
+  - The full path is built on the fly instead of being saved on each file.
+    This avoids having to update every child file when a parent folder
+    gets renamed or moved.
+
+  - Same security checks as the other functions: the user must be logged
+    in, and the file and its project must exist and belong to that user.
+
+  - How the path is built: start at the target file, then keep following
+    parentId upward. Each file found is added to the front of the array
+    (path.unshift), so the final array reads from the root folder down
+    to the file itself.
+*/
+
+// Get the full folder path from the root down to one file
+// #getFilePath -> by fileId
+export const getFilePath = query({
   args: {
-    id: v.id("files"),
+    fileId: v.id("files"),
   },
   handler: async (ctx, args) => {
-    //Get the ownership
+    // Check who is logged in
     const identity = await verifyAuth(ctx);
 
-    //Fetch the file
-    const file = await ctx.db.get("files", args.id);
-    // -- check if the file still exist
+    // Load the file
+    const file = await ctx.db.get("files", args.fileId);
+
     if (!file) {
       throw new Error("File not found!");
     }
 
-    //Fetch the project that contains the requested file
+    // Load the project this file belongs to
     const project = await ctx.db.get("projects", file.projectId);
-    // -- check if the project exist
+
+    // Stop if the project does not exist
     if (!project) {
       throw new Error("Project not found!");
     }
 
-    // -- check if the user has access to this project
+    // Stop if this user does not own the project
     if (project.ownerId !== identity.subject) {
       throw new Error("Unauthorized access to this project!");
     }
 
-    // Return the fetched file after security checks are fulfilled
+    // Will hold the path, in order from root to file
+    const path: { _id: string; name: string }[] = [];
+
+    // Start walking upward from the target file
+    let currentId: Id<"files"> | undefined = args.fileId;
+
+    // Keep walking up through parents until we reach the root
+    // (a file with no parentId)
+    while (currentId) {
+      const file = (await ctx.db.get("files", currentId)) as
+        Doc<"files"> | undefined;
+
+      // Stop if a broken/missing link is found
+      if (!file) break;
+
+      // Add this file to the front of the path (root ends up first)
+      path.unshift({ _id: file._id, name: file.name });
+
+      // Move up to the parent for the next loop
+      currentId = file.parentId;
+    }
+
+    return path;
+  },
+});
+
+// Get one file or folder by its ID
+// #getFile -> by Id
+export const getFile = query({
+  args: {
+    fileId: v.id("files"),
+  },
+  handler: async (ctx, args) => {
+    // Check who is logged in
+    const identity = await verifyAuth(ctx);
+
+    // Load the file
+    const file = await ctx.db.get("files", args.fileId);
+
+    // Stop if the file does not exist
+    if (!file) {
+      throw new Error("File not found!");
+    }
+
+    // Load the project this file belongs to
+    const project = await ctx.db.get("projects", file.projectId);
+
+    // Stop if the project does not exist
+    if (!project) {
+      throw new Error("Project not found!");
+    }
+
+    // Stop if this user does not own the project
+    if (project.ownerId !== identity.subject) {
+      throw new Error("Unauthorized access to this project!");
+    }
+
+    // All checks passed, return the file
     return file;
   },
 });
 
-// Retrieves folder contents (files and subfolders) for a specific project and parent directory, sorted with folders first then files alphabetically.
-//#getFolderContents -> by projectId & optional(parentId)
+// Get everything inside one folder (or the project root), folders first
+// then files, both sorted alphabetically
+// #getFolderContents -> by projectId & optional(parentId)
 export const getFolderContents = query({
   args: {
     projectId: v.id("projects"),
     parentId: v.optional(v.id("files")),
   },
   handler: async (ctx, args) => {
-    //Get the ownership
+    // Check who is logged in
     const identity = await verifyAuth(ctx);
-    //Fetch the project
+
+    // Load the project
     const project = await ctx.db.get("projects", args.projectId);
 
-    // -- check if the project still exist
+    // Stop if the project does not exist
     if (!project) {
       throw new Error("Project not found!");
     }
 
-    // -- check if the user has access to this project
+    // Stop if this user does not own the project
     if (project.ownerId !== identity.subject) {
       throw new Error("Unauthorized access to this project!");
     }
 
-    // query withIndexes all files and folders sharing the same projectId & parentId if provided
-    // optional parentId means the (folder with it's folder & files) is at the project root, not inside a subfolder
-
+    // Get every file/folder that shares this projectId and parentId.
+    // No parentId means "at the project root" (not inside any folder).
     const files = await ctx.db
       .query("files")
       .withIndex("by_project_parent", (q) =>
@@ -101,24 +177,23 @@ export const getFolderContents = query({
       )
       .collect();
 
-    //Sort: folders first, then files, alphabetically within each group
-    // --  e.q (folders first alphabetically)
-    // --  e.q (files alphabetically)
+    // Sort so folders come first, then files, each group A-Z
     return files.sort((a, b) => {
-      // If (a) is a folder and (b) is a file: keep a in its place before b (-1 means no swap, folder stays first)
+      // a is a folder, b is a file -> a stays first
       if (a.type == "folder" && b.type == "file") return -1;
 
-      // If (a) is a file and (b) is a folder: swap their places so the folder comes first (1 means move a after b)
+      // a is a file, b is a folder -> swap, folder goes first
       if (a.type == "file" && b.type == "folder") return 1;
 
-      // Within same type, sort alphabetically by name
+      // Same type -> sort alphabetically by name
       return a.name.localeCompare(b.name);
     });
   },
 });
 
-// Creates a new file within a project or parent folder while preventing duplicate names and validating parent ownership.
-//#createFile -> by projectId, parentId, name & content with avoiding name duplication
+// Create a new file inside a project (or inside a folder), blocking
+// duplicate names at the same location
+// #createFile -> by projectId, parentId, name & content, blocks duplicate names
 export const createFile = mutation({
   args: {
     projectId: v.id("projects"),
@@ -127,42 +202,43 @@ export const createFile = mutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    //Get the ownership
+    // Check who is logged in
     const identity = await verifyAuth(ctx);
-    //Fetch the project
+
+    // Load the project
     const project = await ctx.db.get("projects", args.projectId);
 
-    // -- check if the project still exist
+    // Stop if the project does not exist
     if (!project) {
       throw new Error("Project not found!");
     }
 
-    // -- check if the user has access to this project
+    // Stop if this user does not own the project
     if (project.ownerId !== identity.subject) {
       throw new Error("Unauthorized access to this project!");
     }
 
-    // -- Validate parent folder if provided
+    // If a parent folder was given, make sure it's valid
     if (args.parentId) {
       const parent = await ctx.db.get(args.parentId);
 
-      // 1. Check if the parent item actually exists
+      // 1. The parent must exist
       if (!parent) {
         throw new Error("Parent folder not found!");
       }
 
-      // 2. Ensure the parent belongs to the exact same project
+      // 2. The parent must belong to the same project
       if (parent.projectId !== args.projectId) {
         throw new Error("Parent folder belongs to a different project!");
       }
 
-      // 3. Ensure the parent is a folder, not a file
+      // 3. The parent must be a folder, not a file
       if (parent.type !== "folder") {
         throw new Error("Cannot create items inside a file!");
       }
     }
 
-    //  get all the files at the same location by passing project id and parentId if it's exist
+    // Get everything already at this same location (same project + parent)
     const files = await ctx.db
       .query("files")
       .withIndex("by_project_parent", (q) =>
@@ -170,19 +246,19 @@ export const createFile = mutation({
       )
       .collect();
 
-    // -- find the file to -> (prevent name duplication)
+    // Look for a file with the same name already there
     const existing = files.find(
       (file) => file.name === args.name && file.type === "file",
     );
 
-    // -- if file with same name already exist at the location return error
+    // Stop if a file with this name already exists here
     if (existing) {
       throw new Error(
         "File already exists at this location, please choose a different name.",
       );
     }
 
-    //Insert the file
+    // Save the new file
     await ctx.db.insert("files", {
       projectId: args.projectId,
       parentId: args.parentId,
@@ -192,15 +268,17 @@ export const createFile = mutation({
       updatedAt: Date.now(),
     });
 
-    //update the project also -- because creating a file in a project means the project got update also
+    // Mark the project as updated too, since adding a file counts
+    // as a change to the project
     await ctx.db.patch("projects", project._id, {
       updatedAt: Date.now(),
     });
   },
 });
 
-// Creates a new folder within a project or parent directory while preventing duplicate names and validating parent ownership.
-//#createFolder -> by projectId, parentId, name & content with avoiding name duplication
+// Create a new folder inside a project (or inside another folder),
+// blocking duplicate names at the same location
+// #createFolder -> by projectId, parentId, name, blocks duplicate names
 export const createFolder = mutation({
   args: {
     projectId: v.id("projects"),
@@ -208,43 +286,43 @@ export const createFolder = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    //Get the ownership
+    // Check who is logged in
     const identity = await verifyAuth(ctx);
 
-    //Fetch the project
+    // Load the project
     const project = await ctx.db.get("projects", args.projectId);
 
-    // -- check if the project still exist
+    // Stop if the project does not exist
     if (!project) {
       throw new Error("Project not found!");
     }
 
-    // -- check if the user has access to this project
+    // Stop if this user does not own the project
     if (project.ownerId !== identity.subject) {
       throw new Error("Unauthorized access to this project!");
     }
 
-    // -- Validate parent folder if provided
+    // If a parent folder was given, make sure it's valid
     if (args.parentId) {
       const parent = await ctx.db.get(args.parentId);
 
-      // 1. Check if the parent item actually exists
+      // 1. The parent must exist
       if (!parent) {
         throw new Error("Parent folder not found!");
       }
 
-      // 2. Ensure the parent belongs to the exact same project
+      // 2. The parent must belong to the same project
       if (parent.projectId !== args.projectId) {
         throw new Error("Parent folder belongs to a different project!");
       }
 
-      // 3. Ensure the parent is a folder, not a file
+      // 3. The parent must be a folder, not a file
       if (parent.type !== "folder") {
         throw new Error("Cannot create folders inside a file!");
       }
     }
 
-    // get all the folder at the same location by passing project id and parentId if it's exist
+    // Get everything already at this same location (same project + parent)
     const files = await ctx.db
       .query("files")
       .withIndex("by_project_parent", (q) =>
@@ -252,19 +330,19 @@ export const createFolder = mutation({
       )
       .collect();
 
-    // -- find the folder to -> (prevent name duplication)
+    // Look for a folder with the same name already there
     const existing = files.find(
       (file) => file.name === args.name && file.type === "folder",
     );
 
-    // -- if folder with same name already exist at the location return error
+    // Stop if a folder with this name already exists here
     if (existing) {
       throw new Error(
         "folder already exists at this location, please choose a different name.",
       );
     }
 
-    //Insert the file
+    // Save the new folder
     await ctx.db.insert("files", {
       projectId: args.projectId,
       parentId: args.parentId,
@@ -273,43 +351,47 @@ export const createFolder = mutation({
       updatedAt: Date.now(),
     });
 
-    //update the project also -- because creating a folder in a project means the project got update also
+    // Mark the project as updated too, since adding a folder counts
+    // as a change to the project
     await ctx.db.patch("projects", project._id, {
       updatedAt: Date.now(),
     });
   },
 });
-// Renames an existing file or folder while checking for name conflicts among siblings.
-//#renameFile -> by fileId, newName -- not with projectId Or ParentId --because the file we gonna fetch holds parentId & projectId
+
+// Rename an existing file or folder, blocking a name clash with its siblings
+// #renameFile -> by fileId, newName
+// (no projectId/parentId needed here, since the file we load already has both)
 export const renameFile = mutation({
   args: {
     id: v.id("files"),
     newName: v.string(),
   },
   handler: async (ctx, args) => {
+    // Check who is logged in
     const identity = await verifyAuth(ctx);
 
-    //Fetch the file
+    // Load the file
     const file = await ctx.db.get("files", args.id);
 
-    //if the file not exist
+    // Stop if the file does not exist
     if (!file) {
       throw new Error("File not found.");
     }
 
-    //check if the project that holds this file exists
+    // Load the project this file belongs to
     const project = await ctx.db.get("projects", file.projectId);
 
     if (!project) {
       throw new Error("Project not found.");
     }
 
-    // -- check if the user has access to this project
+    // Stop if this user does not own the project
     if (project.ownerId !== identity.subject) {
       throw new Error("Unauthorized access to this project!");
     }
 
-    //check if a file with the same name already exist at the same location by getting the file siblings
+    // Get this file's siblings (everything else at the same location)
     const siblings = await ctx.db
       .query("files")
       .withIndex("by_project_parent", (q) =>
@@ -317,150 +399,153 @@ export const renameFile = mutation({
       )
       .collect();
 
-    // check if the newName already token reserved for one of the siblings before we rename
+    // Check if the new name is already taken by a sibling
     const existing = siblings.find(
       (sibling) =>
-        sibling.name === args.newName && // if file exist with the same name
-        sibling.type === file.type && // if file exist with the same type
-        sibling._id !== args.id, // the file (should not) be the file i try to rename
-      //because if it's the same id means this file not a sibling , means this is the file itself
+        sibling.name === args.newName && // same name
+        sibling.type === file.type && // same type (file vs folder)
+        sibling._id !== args.id, // not the file we're renaming itself
     );
 
-    //if file/folder exist at the location with the same name throw an error
+    // Stop if the name is already in use here
     if (existing) {
       throw new Error(
         `A ${file.type} with this name already exists in this location`,
       );
     }
 
-    //update the folder name
+    // Save the new name
     await ctx.db.patch("files", args.id, {
       name: args.newName,
       updatedAt: Date.now(),
     });
 
-    //update the project also -- because renaming a file in a project means the project got update also
+    // Mark the project as updated too, since renaming counts as a change
     await ctx.db.patch("projects", project._id, {
       updatedAt: Date.now(),
     });
 
-    // Note: If we rename a folder, we don't need to update any files or subfolders inside it.
-    // Why? Because inner files are linked to this folder using a fixed ID (parentId),
-    // not by using the folder's name. So changing the name doesn't break the connection at all.
+    // Note: renaming a folder does not require updating its children.
+    // Child files link to their parent by a fixed parentId, not by the
+    // parent's name, so the connection stays intact either way.
   },
 });
 
-// Deletes a file or recursively deletes a folder along with all its nested descendants and storage assets.
-//#deleteFile -> by fileId, delete files, and folders and folders inside folders by deleteRecursive()
+// Delete a file, or delete a folder and everything inside it
+// #deleteFile -> by fileId, removes files/folders recursively via deleteRecursive()
 export const deleteFile = mutation({
   args: {
     id: v.id("files"),
   },
   handler: async (ctx, args) => {
+    // Check who is logged in
     const identity = await verifyAuth(ctx);
 
-    //Fetch the file
+    // Load the file
     const file = await ctx.db.get("files", args.id);
 
-    //if the file not exist
+    // Stop if the file does not exist
     if (!file) {
       throw new Error("File not found.");
     }
 
-    //check if the project that holds this file exists
+    // Load the project this file belongs to
     const project = await ctx.db.get("projects", file.projectId);
 
     if (!project) {
       throw new Error("Project not found.");
     }
 
-    // -- check if the user has access to this project
+    // Stop if this user does not own the project
     if (project.ownerId !== identity.subject) {
       throw new Error("Unauthorized access to this project!");
     }
 
-    //recursively delete file or folders with its all descendants
+    // Delete a file or folder, and if it's a folder, delete everything
+    // inside it first (children, grandchildren, and so on)
     const deleteRecursive = async (fileId: Id<"files">) => {
       const item = await ctx.db.get("files", fileId);
 
+      // Already gone, nothing to do
       if (!item) {
         return;
       }
 
-      //### FOLDER ###//
-      // if it's a folder, delete all children first
+      // If this is a folder, clear out its contents first
       if (item.type === "folder") {
+        // Find direct children (this folder is their parentId)
         const children = await ctx.db
           .query("files")
-          .withIndex(
-            "by_project_parent",
-            (q) => q.eq("projectId", item.projectId).eq("parentId", fileId),
-            // the current item fileId is the parentId -> means get each children under this parentId
+          .withIndex("by_project_parent", (q) =>
+            q.eq("projectId", item.projectId).eq("parentId", fileId),
           )
           .collect();
 
-        //also each on of the children can be a folder also, so we have to run the same function again to do unlimited children check
+        // Each child might also be a folder, so repeat this same
+        // process for every child (goes as deep as needed)
         for (const child of children) {
-          await deleteRecursive(child._id); // it will apply the logic for each children level
+          await deleteRecursive(child._id);
         }
       }
-      //### END FOLDER ###//
 
-      //Delete storage file if it exists
+      // Delete the stored asset too, if this file has one
       if (item.storageId) {
         await ctx.storage.delete(item.storageId);
       }
 
-      //Delete the file/folder itself
+      // Finally, delete the file/folder record itself
       await ctx.db.delete("files", fileId);
     };
-    //Fire the delete Recursive on files/folders
+
+    // Start the recursive delete from the requested file/folder
     await deleteRecursive(args.id);
 
-    //update the project also -- because deleting a file in a project means the project got update also
+    // Mark the project as updated too, since deleting counts as a change
     await ctx.db.patch("projects", project._id, {
       updatedAt: Date.now(),
     });
   },
 });
 
-// Updates the text content (code) of an existing file by its ID.
-//#updateFile -> by fileId, content -- the file content the (code)
+// Update the text content (code) of an existing file
+// #updateFile -> by fileId, content
 export const updateFile = mutation({
   args: {
-    id: v.id("files"),
+    fileId: v.id("files"),
     content: v.string(),
   },
   handler: async (ctx, args) => {
+    // Check who is logged in
     const identity = await verifyAuth(ctx);
 
-    //Fetch the file
-    const file = await ctx.db.get("files", args.id);
+    // Load the file
+    const file = await ctx.db.get("files", args.fileId);
 
-    //if the file not exist
+    // Stop if the file does not exist
     if (!file) {
       throw new Error("File not found.");
     }
 
-    //check if the project that holds this file exists
+    // Load the project this file belongs to
     const project = await ctx.db.get("projects", file.projectId);
 
     if (!project) {
       throw new Error("Project not found.");
     }
 
-    // -- check if the user has access to this project
+    // Stop if this user does not own the project
     if (project.ownerId !== identity.subject) {
       throw new Error("Unauthorized access to this project!");
     }
 
-    //update the file content the (code) by file id
-    await ctx.db.patch("files", args.id, {
+    // Save the new content
+    await ctx.db.patch("files", args.fileId, {
       content: args.content,
       updatedAt: Date.now(),
     });
 
-    //update the project also -- because update file in a project means the project got update also
+    // Mark the project as updated too, since editing a file counts
+    // as a change to the project
     await ctx.db.patch("projects", project._id, {
       updatedAt: Date.now(),
     });
