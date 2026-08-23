@@ -9,6 +9,9 @@ import {
 import { useState } from "react";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { useProject } from "../../hooks/use-projects";
+import { useRevealActiveFile } from "../../hooks/use-reveal-active-file";
+import { useEditor } from "@/features/editor/hooks/use-editor";
+import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { Button } from "@/components/ui/button";
 import {
   useCreateFile,
@@ -24,7 +27,6 @@ interface FileExplorerProps {
 }
 export const FileExplorer = ({ projectId }: FileExplorerProps) => {
   //States
-  const [isOpen, setIsOpen] = useState<boolean>(true);
   const [collapseKey, setCollapseKey] = useState<number>(0);
   const [creating, setCreating] = useState<"file" | "folder" | null>(null);
 
@@ -32,7 +34,21 @@ export const FileExplorer = ({ projectId }: FileExplorerProps) => {
   const project = useProject(projectId);
   const createFile = useCreateFile();
   const createFolder = useCreateFolder();
+  const { toggleExplorerRoot, openExplorerRoot, collapseAllFolders } =
+    useEditor(projectId);
+
+  // The root header's expansion lives in the shared store (like every
+  // folder's), so the reveal flow can open it from outside this component
+  const isOpen = useEditorStore(
+    (state) => state.getExplorerState(projectId).rootOpen,
+  );
   const rootFiles = useFolderContents({ projectId, enabled: isOpen });
+
+  // VS Code-style auto-reveal: expands the tree (root included) along the
+  // active file's ancestor chain whenever the active tab changes (see the
+  // hook for why this reacts to the store instead of being called from the
+  // tabs UI)
+  useRevealActiveFile(projectId);
 
   //functions
   const handleCreate = (name: string) => {
@@ -62,7 +78,7 @@ export const FileExplorer = ({ projectId }: FileExplorerProps) => {
         {/* Project name & creations actions collapse */}
         <div
           role="button"
-          onClick={() => setIsOpen((value) => !value)}
+          onClick={() => toggleExplorerRoot()}
           className="group/project cursor-pointer w-full text-left flex items-center gap-0.5 h-5.5 bg-accent font-bold"
         >
           {/* #Root Chevron + project name */}
@@ -82,7 +98,7 @@ export const FileExplorer = ({ projectId }: FileExplorerProps) => {
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                setIsOpen(true);
+                openExplorerRoot();
                 setCreating("file");
               }}
               variant="highlight"
@@ -94,7 +110,7 @@ export const FileExplorer = ({ projectId }: FileExplorerProps) => {
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                setIsOpen(true);
+                openExplorerRoot();
                 setCreating("folder");
               }}
               variant="highlight"
@@ -106,8 +122,12 @@ export const FileExplorer = ({ projectId }: FileExplorerProps) => {
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
+                // Expansion now lives in the shared store, so clearing it is
+                // what actually snaps every folder shut...
+                collapseAllFolders();
+                // ...while bumping the key still remounts the trees to reset
+                // their local inline states (rename/create inputs)
                 setCollapseKey((prev) => prev + 1);
-                //Reset collapse
               }}
               variant="highlight"
               size="icon-xs"
