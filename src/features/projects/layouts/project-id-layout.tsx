@@ -27,9 +27,10 @@ export const ProjectIdLayout = ({
       >
         <Allotment.Pane
           snap
-          minSize={MIN_SIDEBAR_WIDTH}
-          maxSize={MAX_SIDEBAR_WIDTH}
-          preferredSize={DEFAULT_CONVERSATION_SIDEBAR_WIDTH}
+          minSize={0}
+          maxSize={0}
+          preferredSize={0}
+          // TODO: ADD -> MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH LATER, DEFAULT_CONVERSATION_SIDEBAR_WIDTH LATER
         >
           <div>Conversation Sidebar</div>
         </Allotment.Pane>

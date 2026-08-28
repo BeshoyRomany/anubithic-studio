@@ -29,7 +29,7 @@
     },
     {
       "type": "shell",
-      "command": "npx inngest-cli@latest dev --no-discovery -u https://localhost:3001/api/inngest",
+      "command": "inngest dev --no-discovery -u https://localhost:3001/api/inngest",
       "label": "Dev: Inngest",
       "isBackground": true,
       "icon": {

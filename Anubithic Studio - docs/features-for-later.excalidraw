@@ -90,7 +90,7 @@
       "type": "text",
       "x": 432.800048828125,
       "y": 235.40000915527344,
-      "width": 735.53173828125,
+      "width": 749.5597534179688,
       "height": 105,
       "angle": 0,
       "strokeColor": "#1e1e1e",
@@ -105,8 +105,8 @@
       "index": "a2",
       "roundness": null,
       "seed": 510087265,
-      "version": 230,
-      "versionNonce": 1477424632,
+      "version": 237,
+      "versionNonce": 1553752176,
       "isDeleted": false,
       "boundElements": [
         {
@@ -114,16 +114,16 @@
           "type": "arrow"
         }
       ],
-      "updated": 1787401756727,
+      "updated": 1787568545230,
       "link": null,
       "locked": false,
-      "text": "1- file explorer (drag & drop)\n2- show active tab by expanding parent folders\n3- add breadcrumb dropdown items on href link clicked",
+      "text": "1- file explorer (drag & drop)\n2- show active tab by expanding parent folders (done)\n3- add breadcrumb dropdown items on href link clicked",
       "fontSize": 28,
       "fontFamily": 5,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "1- file explorer (drag & drop)\n2- show active tab by expanding parent folders\n3- add breadcrumb dropdown items on href link clicked",
+      "originalText": "1- file explorer (drag & drop)\n2- show active tab by expanding parent folders (done)\n3- add breadcrumb dropdown items on href link clicked",
       "autoResize": true,
       "lineHeight": 1.25
     },
@@ -170,6 +170,48 @@
       "lineHeight": 1.25
     },
     {
+      "id": "dHshDQZCiDFRT5Snu-SUA",
+      "type": "text",
+      "x": 451.23328145345045,
+      "y": 1193.5666065216064,
+      "width": 1021.1317138671875,
+      "height": 35,
+      "angle": 0,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "index": "a2l",
+      "roundness": null,
+      "seed": 2039212176,
+      "version": 813,
+      "versionNonce": 1627128432,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "-xvKFcb0c5KaScJnOU7G2",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1787568618281,
+      "link": null,
+      "locked": false,
+      "text": "5- Keep the active files in the <TopNavigation /> Component after refresh",
+      "fontSize": 28,
+      "fontFamily": 5,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "5- Keep the active files in the <TopNavigation /> Component after refresh",
+      "autoResize": true,
+      "lineHeight": 1.25
+    },
+    {
       "id": "M6rNHUAlY9QS6wYGsN4wa",
       "type": "image",
       "x": 663.0879209533579,
@@ -212,10 +254,10 @@
     {
       "id": "-xvKFcb0c5KaScJnOU7G2",
       "type": "arrow",
-      "x": 822.7067559486517,
-      "y": 339.20002365112305,
-      "width": 33.85661994260886,
-      "height": 70.80002593994135,
+      "x": 823.9968415939121,
+      "y": 341.5999946594238,
+      "width": 35.146705587869405,
+      "height": 68.40005493164057,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -231,8 +273,8 @@
         "type": 2
       },
       "seed": 1107961224,
-      "version": 360,
-      "versionNonce": 2014348424,
+      "version": 367,
+      "versionNonce": 219599472,
       "isDeleted": false,
       "boundElements": [
         {
@@ -240,7 +282,7 @@
           "id": "wUQ-_YsvoUyJqX5VW26zN"
         }
       ],
-      "updated": 1787401764040,
+      "updated": 1787568545231,
       "link": null,
       "locked": false,
       "points": [
@@ -249,12 +291,12 @@
           0
         ],
         [
-          -10.8195136757829,
-          23.399986267089844
+          -12.109599321043333,
+          21.000015258789062
         ],
         [
-          -33.85661994260886,
-          70.80002593994135
+          -35.146705587869405,
+          68.40005493164057
         ]
       ],
       "lastCommittedPoint": null,
