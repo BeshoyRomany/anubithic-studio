@@ -7,6 +7,10 @@ import { getLanguageExtension } from "../extensions/language-extension";
 import { minimap } from "../extensions/minimap-extension";
 import { indentationMarkers } from "@replit/codemirror-indentation-markers";
 import { customSetup } from "./custom-setup";
+import { suggestion } from "../extensions/suggestion";
+import { quickEdit } from "../extensions/quick-edit";
+import { selectionTooltip } from "../extensions/selection-tooltip-extionsion";
+import { formatCodeExtension } from "../extensions/code-format-extension";
 
 interface CodeEditorProps {
   fileName: string;
@@ -37,6 +41,10 @@ export const CodeEditor = ({
         oneDark,
         customTheme,
         languageExtension,
+        selectionTooltip(),
+        suggestion(fileName),
+        quickEdit(fileName),
+        formatCodeExtension(),
         keymap.of([indentWithTab]),
         minimap(),
         indentationMarkers(),

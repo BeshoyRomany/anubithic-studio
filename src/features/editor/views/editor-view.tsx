@@ -5,7 +5,7 @@ import { TopNavigation } from "../components/top-navigation";
 import { useEditor } from "../hooks/use-editor";
 import Image from "next/image";
 import { CodeEditor } from "../components/code-editor";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 const DEBOUNCE_MS = 1500;
 
@@ -22,6 +22,11 @@ export const EditorView = ({ projectId }: EditorViewProps) => {
 
   const isActiveFileBinary = activeFile && activeFile.storageId;
   const isActiveFileText = activeFile && !activeFile.storageId;
+
+  //unmount the api save request timeout when we change the tab
+  useEffect(() => {
+    () => timeoutRef.current && clearTimeout(timeoutRef.current);
+  }, [activeTabId]);
 
   return (
     <div className="h-full flex flex-col">
