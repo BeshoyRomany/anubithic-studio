@@ -1,6 +1,7 @@
 import Providers from "@/components/providers";
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Inter } from "next/font/google";
+import "allotment/dist/style.css";
 import "./globals.css";
 import { CommandShortcutHandler } from "@/components/command-shortcut-handler";
 import { Toaster } from "sonner";
