@@ -17,7 +17,7 @@ export const fetcher = async (
       .post("/api/suggestion", {
         json: validatedPayload,
         signal,
-        timeout: 10_000, // think for 10 sec
+        timeout: 30_000, // think for 30 sec
         retry: 0,
       })
       .json<SuggestionResponse>();
