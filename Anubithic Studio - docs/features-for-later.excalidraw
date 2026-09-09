@@ -212,6 +212,48 @@
       "lineHeight": 1.25
     },
     {
+      "id": "Im9DnTJ5AVwel2l7qmlYM",
+      "type": "text",
+      "x": 449.46659308941867,
+      "y": 1262.399993934114,
+      "width": 576.23974609375,
+      "height": 35,
+      "angle": 0,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "index": "a2t",
+      "roundness": null,
+      "seed": 1347511127,
+      "version": 884,
+      "versionNonce": 641806489,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "-xvKFcb0c5KaScJnOU7G2",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1788896812109,
+      "link": null,
+      "locked": false,
+      "text": "6- delete conversation, and it's messages ",
+      "fontSize": 28,
+      "fontFamily": 5,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "6- delete conversation, and it's messages ",
+      "autoResize": true,
+      "lineHeight": 1.25
+    },
+    {
       "id": "M6rNHUAlY9QS6wYGsN4wa",
       "type": "image",
       "x": 663.0879209533579,
@@ -389,8 +431,8 @@
     {
       "id": "2av1JwPewYq7TafNUZLni",
       "type": "text",
-      "x": 444.24285701385077,
-      "y": 1568.3836607147523,
+      "x": 427.24334529510077,
+      "y": 2565.3837827850653,
       "width": 2731.097900390625,
       "height": 675,
       "angle": 0,
@@ -406,8 +448,8 @@
       "index": "a8",
       "roundness": null,
       "seed": 87826832,
-      "version": 77,
-      "versionNonce": 506072432,
+      "version": 182,
+      "versionNonce": 1785331361,
       "isDeleted": false,
       "boundElements": [
         {
@@ -415,7 +457,7 @@
           "type": "arrow"
         }
       ],
-      "updated": 1788351121000,
+      "updated": 1788895483488,
       "link": null,
       "locked": false,
       "text": "6- Role: Act as an expert Principal Software Architect and Full-Stack AI Engineer.\n\nProject Context:\n- Project Name: Anubithic Studio (An advanced, production-grade AI-powered IDE built in the browser).\n- Tech Stack: Next.js (App Router), TypeScript, Tailwind CSS, Convex (Real-time Database & Backend), Inngest (Background Workers), Clerk (Authentication), Vercel AI SDK, CodeMirror 6.\n- Core Architecture Philosophy: Strict separation between Client-Facing operations and Internal System operations. All sensitive backend operations or system mutations are gated behind an `internalKey` verified on the server-to-server boundary (Next.js API Routes -> Convex).\n\nCurrent Milestone & Vision:\nWe are transitioning from standard AI chat and code editing to introducing an innovative, AI-powered system of Extensions. Unlike traditional static plugins, these extensions are fully autonomous, AI-driven agents that possess complete awareness \nof the project's context (File tree, code structure, AST, and database models) and can directly execute tools to modify or audit the workspace.\n\nWe are ready to design and implement the first 3 core AI Extensions:\n\n1. Architect & Code Reviewer Extension:\n   - Purpose: Continuous security, architecture, and code-quality auditing across the entire project repository.\n   - Behavior: Automatically scans code changes or can be triggered to detect security vulnerabilities (e.g., client-side database calls, missing input validations), architecture anti-patterns, and suggest/apply robust fixes.\n\n2. Auto-Documentation & Diagram Generator Extension:\n   - Purpose: Eliminating manual documentation overhead by keeping technical docs and architecture flows synced with the codebase.\n   - Behavior: Analyzes newly created Next.js API routes, Convex mutations, and component structures, then automatically writes or updates technical `.md` documentation and architecture data flows.\n\n3. Smart Test & Edge Case Generator Extension:\n   - Purpose: Automated robustness testing and edge-case anticipation.\n   - Behavior: Inspects any user-created logic or system mutation, anticipates failure points (empty data, network disruptions, unauthorized access), and generates comprehensive validation or test suites directly within the workspace.\n\nTask for the next phase:\nHelp me design the technical implementation, database schemas (Convex), API route structures, and Inngest background workflows to bring the first extension (Architect & Code Reviewer) to life, maintaining our strict security and internalKey patterns.",
@@ -431,8 +473,8 @@
     {
       "id": "TzSXcKMrPsTw8nPgYaawJ",
       "type": "text",
-      "x": 1108.2656407206728,
-      "y": 1353.5687797087305,
+      "x": 1091.2661290019228,
+      "y": 2350.5689017790437,
       "width": 107.39991760253906,
       "height": 50,
       "angle": 0,
@@ -448,11 +490,11 @@
       "index": "a9",
       "roundness": null,
       "seed": 435113328,
-      "version": 62,
-      "versionNonce": 1898294640,
+      "version": 167,
+      "versionNonce": 2065795681,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 1788351145399,
+      "boundElements": [],
+      "updated": 1788895483488,
       "link": null,
       "locked": false,
       "text": "Extensions\nprompt",
@@ -468,8 +510,8 @@
     {
       "id": "cQ0giN6AiSYcUeIwvdLI7",
       "type": "ellipse",
-      "x": 1048.4978806027111,
-      "y": 1330.784599519746,
+      "x": 1031.4983688839611,
+      "y": 2327.7847215900592,
       "width": 225.0373737478576,
       "height": 94.29134807133528,
       "angle": 0,
@@ -487,8 +529,8 @@
         "type": 2
       },
       "seed": 1179318160,
-      "version": 99,
-      "versionNonce": 1766959472,
+      "version": 204,
+      "versionNonce": 304322113,
       "isDeleted": false,
       "boundElements": [
         {
@@ -496,15 +538,15 @@
           "type": "arrow"
         }
       ],
-      "updated": 1788351121000,
+      "updated": 1788895483488,
       "link": null,
       "locked": false
     },
     {
       "id": "x8EeSg7mrQirFxJ0GwRf0",
       "type": "arrow",
-      "x": 1084.9525047219613,
-      "y": 1428.9317220564285,
+      "x": 1067.9529930032113,
+      "y": 2425.9318441267415,
       "width": 103.05445726914184,
       "height": 111.11657977481104,
       "angle": 0,
@@ -522,11 +564,11 @@
         "type": 2
       },
       "seed": 275500400,
-      "version": 78,
-      "versionNonce": 1907291504,
+      "version": 399,
+      "versionNonce": 227904207,
       "isDeleted": false,
-      "boundElements": null,
-      "updated": 1788351123206,
+      "boundElements": [],
+      "updated": 1788895483903,
       "link": null,
       "locked": false,
       "points": [
@@ -546,13 +588,13 @@
       "lastCommittedPoint": null,
       "startBinding": {
         "elementId": "cQ0giN6AiSYcUeIwvdLI7",
-        "focus": -0.32211887782990484,
+        "focus": -0.32211887782990306,
         "gap": 15.289282545950345
       },
       "endBinding": {
         "elementId": "2av1JwPewYq7TafNUZLni",
-        "focus": -0.6254776249160825,
-        "gap": 28.335358883512754
+        "focus": -0.6254776249160826,
+        "gap": 28.33535888351298
       },
       "startArrowhead": null,
       "endArrowhead": "arrow",

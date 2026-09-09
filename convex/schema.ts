@@ -69,7 +69,22 @@ export default defineSchema({
         v.literal("cancelled"),
       ),
     ),
+    steps: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          label: v.string(), // "Scanning project files..."
+          status: v.union(
+            v.literal("running"),
+            v.literal("done"),
+            v.literal("error"),
+          ),
+          startedAt: v.number(),
+          completedAt: v.optional(v.number()),
+        }),
+      ),
+    ),
   })
     .index("by_conversation", ["conversationId"])
-    .index("by_project", ["projectId"]),
+    .index("by_project_status", ["projectId", "status"]),
 });
