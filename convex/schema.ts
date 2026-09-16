@@ -24,6 +24,13 @@ export default defineSchema({
       ),
     ),
     exportRepoUrl: v.optional(v.string()),
+    //webContainer settings generate by AI for the first time - after generation
+    settings: v.optional(
+      v.object({
+        installCommand: v.optional(v.string()), //npm install //yarn install
+        devCommand: v.optional(v.string()), //npm run dev
+      }),
+    ),
   }).index("by_owner", ["ownerId"]),
 
   //Files table

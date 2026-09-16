@@ -6,6 +6,10 @@ export const useFile = (fileId: Id<"files"> | null) => {
   return useQuery(api.files.getFile, fileId ? { fileId } : "skip");
 };
 
+export const useFiles = (projectId: Id<"projects">) => {
+  return useQuery(api.files.getFiles, projectId ? { projectId } : "skip");
+};
+
 export const useFilePath = (fileId: Id<"files"> | null) => {
   return useQuery(api.files.getFilePath, fileId ? { fileId } : "skip");
 };
