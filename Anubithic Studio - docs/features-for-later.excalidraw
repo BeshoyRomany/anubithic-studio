@@ -254,6 +254,48 @@
       "lineHeight": 1.25
     },
     {
+      "id": "Snwk2Rnw42M3FA-88Na_9",
+      "type": "text",
+      "x": 449.86649543316867,
+      "y": 1330.399993934114,
+      "width": 1257.08740234375,
+      "height": 70,
+      "angle": 0,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "index": "a2x",
+      "roundness": null,
+      "seed": 1234147039,
+      "version": 1118,
+      "versionNonce": 194555025,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "-xvKFcb0c5KaScJnOU7G2",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1789567820835,
+      "link": null,
+      "locked": false,
+      "text": "7- enhance the project generation compatibility through web container \nlike: static project, react, vue, nextjs, angular -> booting and fix some error and edge cases",
+      "fontSize": 28,
+      "fontFamily": 5,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "7- enhance the project generation compatibility through web container \nlike: static project, react, vue, nextjs, angular -> booting and fix some error and edge cases",
+      "autoResize": true,
+      "lineHeight": 1.25
+    },
+    {
       "id": "M6rNHUAlY9QS6wYGsN4wa",
       "type": "image",
       "x": 663.0879209533579,

@@ -6,6 +6,7 @@ import { Allotment } from "allotment";
 import { FaGithub } from "react-icons/fa";
 import { FileExplorer } from "../components/file-explorer";
 import { EditorView } from "@/features/editor/views/editor-view";
+import { PreviewView } from "../components/preview-view";
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 800;
@@ -84,7 +85,7 @@ export const ProjectIdView = ({ projectId }: ProjectIdViewProps) => {
             activeView === "preview" ? "visible" : "invisible",
           )}
         >
-          <div>Preview</div>
+          <PreviewView projectId={projectId} />
         </div>
       </div>
     </div>
