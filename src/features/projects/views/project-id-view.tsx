@@ -7,6 +7,7 @@ import { FaGithub } from "react-icons/fa";
 import { FileExplorer } from "../components/file-explorer";
 import { EditorView } from "@/features/editor/views/editor-view";
 import { PreviewView } from "../components/preview-view";
+import { ExportPopover } from "../components/export-popover";
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 800;
@@ -50,10 +51,7 @@ export const ProjectIdView = ({ projectId }: ProjectIdViewProps) => {
           onClick={() => setActiveView("preview")}
         />
         <div className="flex-1 flex justify-end h-full">
-          <div className="flex items-center gap-1.5 h-full px-3 cursor-pointer text-muted-foreground border-l hover:bg-accent/30">
-            <FaGithub className="size-3.5" />
-            <span className="text-sm">Export</span>
-          </div>
+          <ExportPopover projectId={projectId} />
         </div>
       </nav>
       <div className="flex-1 relative">
