@@ -186,7 +186,7 @@ export const useWebContainer = ({
           appendOutput(`$ npx serve . -l 3000\n`);
           const serveProcess = await container.spawn(
             "npx",
-            ["serve", ".", "-l", "3000"],
+            ["-y", "serve", ".", "-l", "3000"],
             // { env: { CI: "true" } },
           );
           serveProcess.output.pipeTo(

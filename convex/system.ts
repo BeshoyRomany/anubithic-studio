@@ -523,8 +523,219 @@ export const failMessageStep = mutation({
     const steps = (message?.steps ?? []).map((s) =>
       s.id === args.stepId
         ? { ...s, status: "error" as const, completedAt: Date.now() }
-        : s
+        : s,
     );
     await ctx.db.patch(args.messageId, { steps });
+  },
+});
+
+/**
+ * ============================================================================
+ * Github import & export
+ * ============================================================================
+ */
+
+//Clean up before importing from github
+export const cleanup = mutation({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const files = await ctx.db
+      .query("files")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    for (const file of files) {
+      // Delete storage file if it exists
+      if (file.storageId) {
+        await ctx.storage.delete(file.storageId);
+      }
+
+      await ctx.db.delete(file._id);
+    }
+
+    return { deleted: files.length };
+  },
+});
+
+/**
+ * Generates a temporary secure upload URL for storing binary files (like images or fonts)
+ * imported from a GitHub repository. This is called by the Inngest background job
+ * to handle file uploads safely.
+ */
+export const generateUploadUrl = mutation({
+  args: {
+    internalKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Creates a database record for an uploaded binary file (like an image or font).
+ * It runs after the file has been successfully uploaded using the storageId
+ * generated from the previous upload URL step, and checks for duplicate names
+ * within the same parent folder before saving.
+ */
+export const createBinaryFile = mutation({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+    name: v.string(),
+    storageId: v.id("_storage"),
+    parentId: v.optional(v.id("files")),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const files = await ctx.db
+      .query("files")
+      .withIndex("by_project_parent", (q) =>
+        q.eq("projectId", args.projectId).eq("parentId", args.parentId),
+      )
+      .collect();
+
+    const existing = files.find(
+      (file) => file.name === args.name && file.type === "file",
+    );
+
+    if (existing) {
+      throw new Error("File already exists");
+    }
+
+    const fileId = await ctx.db.insert("files", {
+      projectId: args.projectId,
+      name: args.name,
+      type: "file",
+      storageId: args.storageId,
+      parentId: args.parentId,
+      updatedAt: Date.now(),
+    });
+
+    return fileId;
+  },
+});
+
+/**
+ * Updates the GitHub repository import status for a specific project
+ * (such as marking it as 'importing', 'completed', or 'failed') along with
+ * the updated timestamp. This is typically invoked by the Inngest background job
+ * to track the progress of the import process.
+ */
+export const updateImportStatus = mutation({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+    status: v.optional(
+      v.union(
+        v.literal("importing"),
+        v.literal("completed"),
+        v.literal("failed"),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    await ctx.db.patch("projects", args.projectId, {
+      importStatus: args.status,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Updates the GitHub repository export status for a specific project
+ * (such as marking it as 'exporting', 'completed', 'failed', or 'cancelled')
+ * along with the generated repository URL—which comes directly from the GitHub API
+ * response via Octokit upon successful repository creation.
+ * This is typically invoked by the Inngest background job.
+ */
+export const updateExportStatus = mutation({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+    status: v.optional(
+      v.union(
+        v.literal("exporting"),
+        v.literal("completed"),
+        v.literal("failed"),
+        v.literal("cancelled"),
+      ),
+    ),
+    repoUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    await ctx.db.patch("projects", args.projectId, {
+      exportStatus: args.status,
+      exportRepoUrl: args.repoUrl,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Fetches all files belonging to a specific project and maps over them
+ * to resolve any binary file storage IDs into active, downloadable URLs
+ * using Convex storage. Files without a storage ID will have a null storage URL.
+ * This is secured with an internal key check.
+ */
+export const getProjectFilesWithUrls = query({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const files = await ctx.db
+      .query("files")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    const urls = await Promise.all(
+      files.map(async (file) => {
+        if (file.storageId) {
+          const url = await ctx.storage.getUrl(file.storageId);
+          return { ...file, storageUrl: url };
+        }
+        return { ...file, storageUrl: null };
+      }),
+    );
+
+    return urls;
+  },
+});
+
+/**
+ * Creates a new project record in the database with an initial status of 'importing',
+ * recording its name, owner ID, and the current timestamp.
+ * This is secured with an internal key check and returns the newly generated project ID.
+ */
+export const createImportProject = mutation({
+  args: {
+    internalKey: v.string(),
+    name: v.string(),
+    ownerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const projectId = await ctx.db.insert("projects", {
+      name: args.name,
+      ownerId: args.ownerId,
+      updatedAt: Date.now(),
+      importStatus: "importing",
+    });
+
+    return projectId;
   },
 });
