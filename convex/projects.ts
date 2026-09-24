@@ -6,7 +6,7 @@ import { verifyAuth } from "./auth";
 
 export const updateSettings = mutation({
   args: {
-    id: v.id("projects"),
+    projectId: v.id("projects"),
     settings: v.object({
       installCommand: v.optional(v.string()),
       devCommand: v.optional(v.string()),
@@ -15,7 +15,7 @@ export const updateSettings = mutation({
   handler: async (ctx, args) => {
     const identity = await verifyAuth(ctx);
 
-    const project = await ctx.db.get("projects", args.id);
+    const project = await ctx.db.get("projects", args.projectId);
 
     if (!project) {
       throw new Error("Project not found");
@@ -25,7 +25,7 @@ export const updateSettings = mutation({
       throw new Error("Unauthorized to update this project");
     }
 
-    await ctx.db.patch("projects", args.id, {
+    await ctx.db.patch("projects", args.projectId, {
       settings: args.settings,
       updatedAt: Date.now(),
     });

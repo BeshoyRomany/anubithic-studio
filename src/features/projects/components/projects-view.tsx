@@ -5,29 +5,22 @@ import { Poppins } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { FaGithub } from "react-icons/fa";
 import { SparkleIcon } from "lucide-react";
-import {
-  uniqueNamesGenerator,
-  adjectives,
-  colors,
-  animals,
-} from "unique-names-generator";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { useIsMac } from "@/hooks/useIsMac";
 import { ProjectsList } from "./projects-list";
-import { useCreateProject } from "../hooks/use-projects";
 import { ProjectsCommandDialog } from "./projects-command-dialog";
 import { ImportGithubDialog } from "./import-github-dialog";
-
+import { NewProjectDialog } from "./new-project-dialog";
 const font = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 export const ProjectsView = () => {
   const isMac = useIsMac();
-  const createProject = useCreateProject();
   const [commandDialogOpen, setCommandDialogOpen] = useState<boolean>(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -38,6 +31,10 @@ export const ProjectsView = () => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i") {
         e.preventDefault();
         setImportDialogOpen(true);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        setNewProjectDialogOpen(true);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -53,6 +50,10 @@ export const ProjectsView = () => {
       <ImportGithubDialog
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
+      />
+      <NewProjectDialog
+        open={newProjectDialogOpen}
+        onOpenChange={setNewProjectDialogOpen}
       />
       <div className="min-h-screen bg-sidebar flex flex-col items-center justify-center p-6 md:p-16">
         <div className="w-full max-w-sm mx-auto flex flex-col gap-4 items-center">
@@ -78,16 +79,7 @@ export const ProjectsView = () => {
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant={"outline"}
-                onClick={() => {
-                  const projectName = uniqueNamesGenerator({
-                    dictionaries: [adjectives, animals, colors],
-                    separator: "_",
-                    length: 3,
-                  });
-                  createProject({
-                    name: projectName,
-                  });
-                }}
+                onClick={() => setNewProjectDialogOpen(true)}
                 className="h-full items-start justify-start p-4 bg-background border flex flex-col gap-6 rounded-none"
               >
                 <div className="flex items-center justify-between w-full">

@@ -47,7 +47,7 @@ export const PreviewSettingsPopover = ({
     },
     onSubmit: async ({ value }) => {
       await updateSettings({
-        id: projectId,
+        projectId,
         settings: {
           installCommand: value.installCommand || undefined,
           devCommand: value.devCommand || undefined,

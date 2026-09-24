@@ -114,15 +114,22 @@ export const processMessage = inngest.createFunction(
       conversation.title === DEFAULT_CONVERSATION_TITLE;
 
     if (shouldGenerateTitle) {
+      // const titleAgent = createAgent({
+      //   name: "title-generator",
+      //   system: TITLE_GENERATOR_SYSTEM_PROMPT,
+      //   model: anthropic({
+      //     model: "claude-haiku-4-5-20251001",
+      //     defaultParameters: { temperature: 0.3, max_tokens: 50 },
+      //   }),
+      // });
       const titleAgent = createAgent({
         name: "title-generator",
         system: TITLE_GENERATOR_SYSTEM_PROMPT,
-        model: anthropic({
-          model: "claude-haiku-4-5-20251001",
-          defaultParameters: { temperature: 0.3, max_tokens: 50 },
+        model: openai({
+          model: "gpt-4.1-mini",
+          defaultParameters: { temperature: 0.3 },
         }),
       });
-
       const { output } = await titleAgent.run(message, { step });
 
       const textMessage = output.find(
@@ -151,13 +158,33 @@ export const processMessage = inngest.createFunction(
     }
 
     // 2- [Agent] coding
+    // const codingAgent = createAgent({
+    //   name: "anubithic-studio",
+    //   description: "An expert AI coding assistant",
+    //   system: systemPrompt,
+    //   model: anthropic({
+    //     model: "claude-haiku-4-5-20251001",
+    //     defaultParameters: { temperature: 0.3, max_tokens: 16000 },
+    //   }),
+    //   tools: [
+    //     createListFilesTool({ internalKey, projectId, messageId }),
+    //     createReadFilesTool({ internalKey, messageId }),
+    //     createUpdateFileTool({ internalKey, messageId }),
+    //     createCreateFilesTool({ internalKey, projectId, messageId }),
+    //     createCreateFolderTool({ internalKey, projectId, messageId }),
+    //     createRenameFileTool({ internalKey, messageId }),
+    //     createDeleteFilesTool({ internalKey, messageId }),
+    //     createScrapeUrlsTool({ internalKey, messageId }),
+    //   ],
+    // });
+
     const codingAgent = createAgent({
       name: "anubithic-studio",
       description: "An expert AI coding assistant",
       system: systemPrompt,
-      model: anthropic({
-        model: "claude-haiku-4-5-20251001",
-        defaultParameters: { temperature: 0.3, max_tokens: 16000 },
+      model: openai({
+        model: "gpt-4.1-mini",
+        defaultParameters: { temperature: 0.3 },
       }),
       tools: [
         createListFilesTool({ internalKey, projectId, messageId }),

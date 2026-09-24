@@ -2,8 +2,11 @@ import Providers from "@/components/providers";
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Inter } from "next/font/google";
 import "allotment/dist/style.css";
+// Streamdown v2 ships its streaming animations as a separate stylesheet
+// (v1 had no such export); without it, code/markdown blocks render but
+// the fade/slide-in transitions never play.
+import "streamdown/styles.css";
 import "./globals.css";
-import { CommandShortcutHandler } from "@/components/command-shortcut-handler";
 import { Toaster } from "sonner";
 
 const inter = Inter({
@@ -31,7 +34,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${plexMono.variable} antialiased`}>
-        <CommandShortcutHandler />
         <Providers>
           {children}
           <Toaster theme="dark" position="bottom-right" />

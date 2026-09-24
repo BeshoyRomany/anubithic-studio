@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Streamdown v2 styles its Shiki tokens with Tailwind utilities baked into
+ * its prebuilt JS. Tailwind v4 skips node_modules when scanning, so without
+ * this the classes are never generated and code blocks render colorless.
+ * Required by streamdown v2's install docs; v1 shipped its own CSS instead. */
+@source "../../node_modules/streamdown/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
