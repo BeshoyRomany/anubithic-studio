@@ -138,8 +138,18 @@ export const getFile = query({
       throw new Error("Unauthorized access to this project!");
     }
 
+    // #region Binary files
+    // Binary files (images, fonts, ...) keep their bytes in Convex file storage
+    // instead of `content`. The raw `storageId` is useless to the browser, so we
+    // resolve it into a short-lived served URL here — the ownership check above
+    // already gates it, which is why this can stay on the public API.
+    // #endregion
+    const storageUrl = file.storageId
+      ? await ctx.storage.getUrl(file.storageId)
+      : null;
+
     // All checks passed, return the file
-    return file;
+    return { ...file, storageUrl };
   },
 });
 

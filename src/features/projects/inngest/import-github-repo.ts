@@ -56,7 +56,14 @@ export const importGithubRepo = inngest.createFunction(
     //Clean up any existing file in the project before we import from github
     // 2. Clear any existing files in the project from database storage before starting the import.
     await step.run("cleanup-project", async () => {
-      await convex.mutation(api.system.cleanup, { internalKey, projectId });
+      let hasMore = true;
+      while (hasMore) {
+        const result = await convex.mutation(api.system.cleanup, {
+          internalKey,
+          projectId,
+        });
+        hasMore = result.hasMore;
+      }
     });
 
     // fetch the repo tree first

@@ -85,6 +85,22 @@ export const createCreateFolderTool = ({
             }
           }
 
+          // #region Reject path separators in folder names.
+          // Names map 1:1 onto WebContainer FileSystemTree keys, which must be
+          // single path segments. A name like "src/components" mounts as an
+          // invalid key and the preview dies with `EIO: invalid file name`.
+          // Nesting is expressed through parentId, never through the name.
+          if (name.includes("/") || name.includes("\\")) {
+            await convex.mutation(api.system.failMessageStep, {
+              internalKey,
+              messageId,
+              stepId,
+            });
+
+            return `Error: Folder name "${name}" must not contain "/" or "\\". Create each level separately and nest it using the parent's ID as parentId.`;
+          }
+          // #endregion
+
           // Create the folder in the database
           const folderId = await convex.mutation(api.system.createFolder, {
             internalKey,

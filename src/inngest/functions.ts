@@ -2,7 +2,8 @@
 import { inngest } from "./client";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
-import { anthropic } from "@ai-sdk/anthropic";
+// import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { firecrawl } from "@/lib/firecrawl";
 import { sentryMiddleware } from "@inngest/middleware-sentry";
 
@@ -77,9 +78,21 @@ export const anthropicGenerate = inngest.createFunction(
     retries: 3,
   },
   async ({ step }) => {
-    await step.run("anthropic-generate", async () => {
+    // await step.run("anthropic-generate", async () => {
+    //   return await generateText({
+    //     model: anthropic("claude-haiku-4-5"),
+    //     prompt: "Write a vegetarian lasagna recipe for 4 people.",
+    //     experimental_telemetry: {
+    //       isEnabled: true,
+    //       recordInputs: true,
+    //       recordOutputs: true,
+    //     },
+    //   });
+    // });
+
+    await step.run("openai-generate", async () => {
       return await generateText({
-        model: anthropic("claude-haiku-4-5"),
+        model: openai("gpt-4.1-mini"),
         prompt: "Write a vegetarian lasagna recipe for 4 people.",
         experimental_telemetry: {
           isEnabled: true,

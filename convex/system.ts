@@ -540,25 +540,25 @@ export const cleanup = mutation({
   args: {
     internalKey: v.string(),
     projectId: v.id("projects"),
+    batchSize: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
 
+    const limit = args.batchSize ?? 100;
     const files = await ctx.db
       .query("files")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
+      .take(limit);
 
     for (const file of files) {
-      // Delete storage file if it exists
       if (file.storageId) {
         await ctx.storage.delete(file.storageId);
       }
-
       await ctx.db.delete(file._id);
     }
 
-    return { deleted: files.length };
+    return { deletedCount: files.length, hasMore: files.length === limit };
   },
 });
 
@@ -737,5 +737,34 @@ export const createImportProject = mutation({
     });
 
     return projectId;
+  },
+});
+
+//Atomic creation project with conversation
+export const createProjectWithConversation = mutation({
+  args: {
+    internalKey: v.string(),
+    projectName: v.string(),
+    conversationTitle: v.string(),
+    ownerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const now = Date.now();
+
+    const projectId = await ctx.db.insert("projects", {
+      name: args.projectName,
+      ownerId: args.ownerId,
+      updatedAt: now,
+    });
+
+    const conversationId = await ctx.db.insert("conversations", {
+      projectId,
+      title: args.conversationTitle,
+      updatedAt: now,
+    });
+
+    return { projectId, conversationId };
   },
 });

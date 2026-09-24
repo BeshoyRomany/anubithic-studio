@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 import { NextResponse } from "next/server";
-import { anthropic } from "@ai-sdk/anthropic";
+// import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
 import { auth } from "@clerk/nextjs/server";
 import { firecrawl } from "@/lib/firecrawl";
 
@@ -79,12 +80,17 @@ export async function POST(request: Request) {
       documentation: documentationContext,
     });
 
+    // const { output } = await generateText({
+    //   model: anthropic("claude-haiku-4-5"),
+    //   output: Output.object({ schema: quickEditAISchema }),
+    //   prompt: prompt,
+    // });
+
     const { output } = await generateText({
-      model: anthropic("claude-haiku-4-5"),
+      model: openai("gpt-4.1-mini"),
       output: Output.object({ schema: quickEditAISchema }),
       prompt: prompt,
     });
-
     return NextResponse.json({ editedCode: output.editedCode });
   } catch (error) {
     console.error(error);

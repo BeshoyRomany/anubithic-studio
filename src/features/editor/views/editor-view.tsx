@@ -6,6 +6,25 @@ import { useEditor } from "../hooks/use-editor";
 import Image from "next/image";
 import { CodeEditor } from "../components/code-editor";
 import { useEffect, useRef } from "react";
+import { AlertTriangleIcon } from "lucide-react";
+
+// Extensions every browser can render in an <img> tag.
+const IMAGE_EXTENSIONS = [
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "avif",
+  "svg",
+  "bmp",
+  "ico",
+];
+
+const isImageFileName = (name: string) => {
+  const extension = name.split(".").pop()?.toLowerCase();
+  return !!extension && IMAGE_EXTENSIONS.includes(extension);
+};
 
 const DEBOUNCE_MS = 1500;
 
@@ -22,6 +41,16 @@ export const EditorView = ({ projectId }: EditorViewProps) => {
 
   const isActiveFileBinary = activeFile && activeFile.storageId;
   const isActiveFileText = activeFile && !activeFile.storageId;
+
+  // #region Previewable binaries
+  // Binary files are held in Convex storage, and `getFile` hands us a served URL
+  // for them. Images are worth rendering rather than refusing — only the formats
+  // the browser has no <img> decoder for fall through to the warning below.
+  // #endregion
+  const isActiveFileImage =
+    isActiveFileBinary &&
+    !!activeFile.storageUrl &&
+    isImageFileName(activeFile.name);
 
   //unmount the api save request timeout when we change the tab
   useEffect(() => {
@@ -63,7 +92,30 @@ export const EditorView = ({ projectId }: EditorViewProps) => {
             }}
           />
         )}
-        {isActiveFileBinary && <p>TODO: Implement binary preview</p>}
+        {isActiveFileImage && (
+          <div className="size-full overflow-auto flex items-center justify-center p-6">
+            {/* Convex storage URLs are signed and short-lived, so next/image
+                optimisation has nothing stable to cache — serve them directly. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={activeFile._id}
+              src={activeFile.storageUrl!}
+              alt={activeFile.name}
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
+        )}
+        {isActiveFileBinary && !isActiveFileImage && (
+          <div className="size-full flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2.5 max-w-md text-center">
+              <AlertTriangleIcon className="size-10 text-yellow-500" />
+              <p className="text-sm">
+                The file is not displayed in the text editor because it is
+                either binary or uses an unsupported text encoding.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
