@@ -2,16 +2,9 @@
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthLoadingView } from "@/features/auth/components/auth-loading-view";
-import { UnauthenticatedView } from "@/features/auth/components/unauthenticated-view";
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
-import {
-  Authenticated,
-  AuthLoading,
-  ConvexReactClient,
-  Unauthenticated,
-} from "convex/react";
+import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ReactNode } from "react";
 
@@ -35,17 +28,8 @@ export default function Providers({ children }: { children: ReactNode }) {
           enableSystem
           disableTransitionOnChange
         >
-          <TooltipProvider>
-            {/* The whole entire app should rendered when im only authenticated */}
-            <Authenticated>{children}</Authenticated>
-            {/* The whole entire app should rendered when im only authenticated */}
-            <Unauthenticated>
-              <UnauthenticatedView />
-            </Unauthenticated>
-            <AuthLoading>
-              <AuthLoadingView />
-            </AuthLoading>
-          </TooltipProvider>
+          {/* Auth gate moved to AuthGuard (protected routes only) */}
+          <TooltipProvider>{children}</TooltipProvider>
         </ThemeProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
