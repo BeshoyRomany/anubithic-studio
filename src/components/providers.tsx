@@ -1,11 +1,12 @@
 "use client";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { UserSync } from "@/features/auth/components/user-sync";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ClerkProvider, useAuth } from "@clerk/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
-import { ConvexReactClient } from "convex/react";
-import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
+import { useAuthFromClerk } from "@/features/auth/hooks/use-auth-from-clerk";
 import { ReactNode } from "react";
 
 if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
@@ -21,7 +22,11 @@ export default function Providers({ children }: { children: ReactNode }) {
         theme: dark,
       }}
     >
-      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+      {/* ConvexProviderWithClerk, but re-authenticating when the Clerk plan
+          changes too, so Pro features lock/unlock without a reload */}
+      <ConvexProviderWithAuth client={convex} useAuth={useAuthFromClerk}>
+        {/* Keeps the Convex "users" row in sync with the signed-in Clerk user */}
+        <UserSync />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -31,7 +36,7 @@ export default function Providers({ children }: { children: ReactNode }) {
           {/* Auth gate moved to AuthGuard (protected routes only) */}
           <TooltipProvider>{children}</TooltipProvider>
         </ThemeProvider>
-      </ConvexProviderWithClerk>
+      </ConvexProviderWithAuth>
     </ClerkProvider>
   );
 }

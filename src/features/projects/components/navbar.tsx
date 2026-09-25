@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Poppins } from "next/font/google";
 import { UserButton } from "@clerk/nextjs";
 import { useProject, useRenameProject } from "../hooks/use-projects";
+import { TeamPopover } from "./team-popover";
 import React, { useState } from "react";
 
 import {
@@ -38,8 +39,11 @@ export const Navbar = ({ projectId }: NavbarProps) => {
   const [isRenaming, setIsRenaming] = useState(false);
   const [name, setName] = useState("");
 
+  //Renaming is for the owner and admins (the server rejects it for contributors too)
+  const canRename = project?.role === "owner" || project?.role === "admin";
+
   const handleStartRename = () => {
-    if (!project) return;
+    if (!project || !canRename) return;
     setName(project.name);
     setIsRenaming(true);
   };
@@ -104,7 +108,10 @@ export const Navbar = ({ projectId }: NavbarProps) => {
                 <BreadcrumbPage
                   title={project?.name}
                   onClick={() => handleStartRename()}
-                  className="text-sm cursor-pointer hover:text-primary font-medium max-w-40 truncate"
+                  className={cn(
+                    "text-sm font-medium max-w-40 truncate",
+                    canRename && "cursor-pointer hover:text-primary",
+                  )}
                 >
                   {project?.name || "Loading..."}
                 </BreadcrumbPage>
@@ -134,6 +141,7 @@ export const Navbar = ({ projectId }: NavbarProps) => {
         )}
       </div>
       <div className="flex items-center gap-2">
+        <TeamPopover projectId={projectId} />
         <UserButton />
       </div>
     </nav>

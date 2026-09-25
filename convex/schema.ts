@@ -3,6 +3,33 @@ import { v } from "convex/values";
 import { string } from "zod/v4";
 
 export default defineSchema({
+  //#region Users table
+  //Clerk stays the source of truth for authentication; this table is our own
+  //copy of "who exists" so other users can be found by email (team invites)
+  //and shown by name/avatar (presence).
+  //
+  //"clerkId" is the canonical user id across the app — it's the same value as
+  //Clerk's "identity.subject", which is what "projects.ownerId" already stores.
+  //So "project.ownerId === user.clerkId" links a project to its owner row.
+  //
+  //Rows are upserted by "users.store" every time a user signs in (see
+  //"UserSync" in src/features/auth/components/user-sync.tsx).
+  //#endregion
+  users: defineTable({
+    clerkId: v.string(),
+    //Always stored lowercased so invite lookups are case-insensitive
+    email: v.string(),
+    name: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    //Pro plan snapshot from the Clerk token, refreshed on every "users.store".
+    //Lets admins/contributors know whether the project OWNER's plan includes
+    //team collaboration (they can't read the owner's token).
+    isPro: v.optional(v.boolean()),
+    updatedAt: v.number(),
+  })
+    .index("by_clerk_id", ["clerkId"])
+    .index("by_email", ["email"]),
+
   //Projects table
   projects: defineTable({
     name: v.string(),
@@ -32,6 +59,65 @@ export default defineSchema({
       }),
     ),
   }).index("by_owner", ["ownerId"]),
+
+  //#region Project contributors table (team collaboration)
+  //One row per person who was given access to someone else's project.
+  //The owner is NOT stored here — "projects.ownerId" already says who owns it.
+  //
+  //An invite is addressed to an EMAIL, because the person may not have signed
+  //up yet:
+  //  - "pending": invite exists, "userId" is empty (nobody claimed it yet)
+  //  - "active":  "userId" is set to the invitee's Clerk id → they have access
+  //
+  //Access checks only ever trust "active" rows (see "getProjectRole" in
+  //convex/auth.ts), so a pending invite grants nothing.
+  //#endregion
+  projectContributors: defineTable({
+    projectId: v.id("projects"),
+    //Lowercased, same as "users.email", so the two can be matched
+    email: v.string(),
+    //Clerk id of the member, set once the invite is claimed
+    userId: v.optional(v.string()),
+    //"admin" = contributor + rename/export/manage contributors (see
+    //convex/auth.ts). Only the owner can grant or revoke "admin".
+    role: v.union(v.literal("admin"), v.literal("contributor")),
+    status: v.union(v.literal("pending"), v.literal("active")),
+    //Clerk id of whoever sent the invite (the owner)
+    invitedBy: v.string(),
+    updatedAt: v.number(),
+  })
+    //List a project's team
+    .index("by_project", ["projectId"])
+    //"Is this user a member of this project?" — the access check
+    .index("by_project_user", ["projectId", "userId"])
+    //"Was this email already invited to this project?"
+    .index("by_project_email", ["projectId", "email"])
+    //"Which projects are shared with me?" — the projects list
+    .index("by_user_status", ["userId", "status"])
+    //Claim pending invites when the invitee signs in
+    .index("by_email_status", ["email", "status"]),
+
+  //#region Presence table (who is in the project right now, and on which file)
+  //One row per (project, user), upserted by "presence.heartbeat" every few
+  //seconds while the project is open, and deleted by "presence.leave" when the
+  //user closes it.
+  //
+  //A tab that dies without saying goodbye (crash, lost network) just stops
+  //heartbeating — the client treats rows older than a few heartbeats as
+  //offline, so nothing has to clean them up for the UI to be right.
+  //#endregion
+  presence: defineTable({
+    projectId: v.id("projects"),
+    //Clerk id (same as users.clerkId)
+    userId: v.string(),
+    //The file in the user's active editor tab (none → no file open)
+    fileId: v.optional(v.id("files")),
+    lastSeenAt: v.number(),
+  })
+    //Everyone in a project (the status bar)
+    .index("by_project", ["projectId"])
+    //My own row (heartbeat upsert / leave)
+    .index("by_project_user", ["projectId", "userId"]),
 
   //Files table
   files: defineTable({

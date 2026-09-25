@@ -48,6 +48,17 @@ export async function POST(request: Request) {
 
   const projectId = conversation.projectId;
 
+  //Owner or active contributor only — the agent edits the project's files
+  const role = await convex.query(api.system.getProjectRole, {
+    internalKey,
+    projectId,
+    userId,
+  });
+
+  if (!role) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   //Find all processing messages in this project
   const processingMessages = await convex.query(
     api.system.getProcessingMessages,

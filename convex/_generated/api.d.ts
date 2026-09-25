@@ -9,10 +9,13 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as contributors from "../contributors.js";
 import type * as conversations from "../conversations.js";
 import type * as files from "../files.js";
+import type * as presence from "../presence.js";
 import type * as projects from "../projects.js";
 import type * as system from "../system.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -22,10 +25,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  contributors: typeof contributors;
   conversations: typeof conversations;
   files: typeof files;
+  presence: typeof presence;
   projects: typeof projects;
   system: typeof system;
+  users: typeof users;
 }>;
 
 /**

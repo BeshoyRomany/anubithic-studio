@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ProBadge } from "@/components/pro-badge";
 import { FaGithub } from "react-icons/fa";
 import { LoaderIcon, TriangleAlertIcon } from "lucide-react";
 
@@ -240,6 +241,7 @@ const DefaultDeleteContent = (props: DeleteContentProps) => {
                 <FaGithub className="size-4" />
               )}
               Export to GitHub
+              <ProBadge />
             </Button>
           }
         />
@@ -349,6 +351,7 @@ const GlowDeleteContent = (props: DeleteContentProps) => {
                   <FaGithub className="size-3.5" />
                 )}
                 Export to GitHub
+                <ProBadge />
               </Button>
             }
           />

@@ -28,9 +28,34 @@ Next.js 16 (App Router, React 19) · Convex (database + server functions) · Cle
 
 - Path alias `@/*` → `./src/*`.
 - Filenames are kebab-case (`editor-view.tsx`, `use-editor-store.ts`).
-- Convex mutations/queries authenticate via `verifyAuth(ctx)` from `convex/auth.ts`; ownership is checked against Clerk's `identity.subject` stored as `ownerId`. Keep queries index-backed (`by_owner`, `by_project`, `by_parent`, `by_project_parent`).
+- Convex mutations/queries authenticate via `verifyAuth(ctx)` from `convex/auth.ts`; project access goes through `verifyProjectAccess(ctx, projectId, { minimum? })`, which admits the owner (`ownerId` = Clerk `identity.subject` = `users.clerkId`) and active `projectContributors` rows (`admin` / `contributor`); roles rank owner > admin > contributor (`minimum: "admin"` for rename/export/team, `"owner"` for delete and admin promotion). Route handlers check the caller with `api.system.getProjectRole`. Keep queries index-backed (`by_owner`, `by_project`, `by_parent`, `by_project_parent`, `by_project_user`, `by_user_status`).
 - Editor state goes through the Zustand store at `src/features/editor/store/use-editor-store.ts`: tabs per project AND the file-tree expansion state (root + folders). The tree's auto-reveal of the active file (VS Code style) reacts to `activeTabId` changes via `src/features/projects/hooks/use-reveal-active-file.ts` — don't wire reveal calls into individual UI components. CodeMirror language/theme/minimap setup lives in `src/features/editor/extensions/` and `components/custom-setup.ts`.
 - Comments frequently use `#region … #endregion` blocks explaining design decisions — preserve them when editing.
+
+## Team roles & permissions
+
+Every project has one **owner** (`projects.ownerId`) plus optional team members in `projectContributors` with role `admin` or `contributor`. Only rows with `status: "active"` grant access; a `pending` invite grants nothing until the invitee accepts it. Enforce these rules server-side, with `verifyProjectAccess(..., { minimum })` in Convex and `api.system.getProjectRole` in route handlers. The UI only hides controls the server would reject anyway.
+
+| Action | Owner | Admin | Contributor |
+| --- | :-: | :-: | :-: |
+| Open the project; read/edit/create/move/delete files | ✓ | ✓ | ✓ |
+| Conversations + AI agent, preview settings | ✓ | ✓ | ✓ |
+| Rename the project | ✓ | ✓ | |
+| Export to GitHub (export / cancel / reset) | ✓ | ✓ | |
+| Invite contributors; remove contributors or cancel their invites | ✓ | ✓ | |
+| Invite as admin; promote/demote (`contributors.setRole`); remove admins | ✓ | | |
+| Delete the project | ✓ | | |
+| Leave the project | — | ✓ | ✓ |
+| Can be removed from the team | never | by owner | by owner or admin |
+
+- **Minimum role:** use `minimum: "admin"` for the admin rows above and `minimum: "owner"` for the owner-only rows. Everything else needs only membership (no `minimum`).
+- **The owner can't be removed:** the owner is not a `projectContributors` row, so there is nothing to delete. `contributors.remove` also stops an admin from removing another admin.
+- **Accepting invites:** it requires the signed-in account's email (from the verified Clerk token) to match the invite email. Never take the email from a client argument.
+- **GitHub import:** it isn't in the table because it always creates a *new* project owned by the importer.
+- **Pro plan gate:** team collaboration needs the **owner's** Pro plan (Clerk Billing). `invite` and `setRole` throw without it, using `isTeamEnabled` in `convex/contributors.ts`.
+  - When the caller is the owner, the plan is read from their own token with `hasProPlan(identity)`, which parses the `pla` claim.
+  - For anyone else, it's read from the owner's `users.isPro` snapshot.
+  - Existing members keep their access after a downgrade, and removing people always works. A free owner with no team sees a "Collaborate · PRO" button that opens the upgrade toast.
 
 ## Gotchas
 

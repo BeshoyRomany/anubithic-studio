@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { verifyAuth } from "./auth";
+import { verifyAuth, verifyProjectAccess } from "./auth";
 import { Id, Doc } from "./_generated/dataModel";
 
 // Get all files and folders inside one project
@@ -10,21 +10,8 @@ export const getFiles = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    // Check who is logged in
-    const identity = await verifyAuth(ctx);
-
-    // Load the project
-    const project = await ctx.db.get("projects", args.projectId);
-
-    // Stop if the project does not exist
-    if (!project) {
-      throw new Error("Project not found!");
-    }
-
-    // Stop if this user does not own the project
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project!");
-    }
+    // Check who is logged in and that they own or contribute to the project
+    await verifyProjectAccess(ctx, args.projectId);
 
     // Return all files under this project, newest first
     return await ctx.db
@@ -43,7 +30,8 @@ export const getFiles = query({
     gets renamed or moved.
 
   - Same security checks as the other functions: the user must be logged
-    in, and the file and its project must exist and belong to that user.
+    in, and the file and its project must exist and the user must be the
+    project's owner or an active contributor (see verifyProjectAccess).
 
   - How the path is built: start at the target file, then keep following
     parentId upward. Each file found is added to the front of the array
@@ -59,7 +47,7 @@ export const getFilePath = query({
   },
   handler: async (ctx, args) => {
     // Check who is logged in
-    const identity = await verifyAuth(ctx);
+    await verifyAuth(ctx);
 
     // Load the file
     const file = await ctx.db.get("files", args.fileId);
@@ -68,18 +56,8 @@ export const getFilePath = query({
       throw new Error("File not found!");
     }
 
-    // Load the project this file belongs to
-    const project = await ctx.db.get("projects", file.projectId);
-
-    // Stop if the project does not exist
-    if (!project) {
-      throw new Error("Project not found!");
-    }
-
-    // Stop if this user does not own the project
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project!");
-    }
+    // Stop unless this user owns or contributes to the file's project
+    await verifyProjectAccess(ctx, file.projectId);
 
     // Will hold the path, in order from root to file
     const path: { _id: string; name: string }[] = [];
@@ -115,7 +93,7 @@ export const getFile = query({
   },
   handler: async (ctx, args) => {
     // Check who is logged in
-    const identity = await verifyAuth(ctx);
+    await verifyAuth(ctx);
 
     // Load the file
     const file = await ctx.db.get("files", args.fileId);
@@ -125,23 +103,13 @@ export const getFile = query({
       throw new Error("File not found!");
     }
 
-    // Load the project this file belongs to
-    const project = await ctx.db.get("projects", file.projectId);
-
-    // Stop if the project does not exist
-    if (!project) {
-      throw new Error("Project not found!");
-    }
-
-    // Stop if this user does not own the project
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project!");
-    }
+    // Stop unless this user owns or contributes to the file's project
+    await verifyProjectAccess(ctx, file.projectId);
 
     // #region Binary files
     // Binary files (images, fonts, ...) keep their bytes in Convex file storage
     // instead of `content`. The raw `storageId` is useless to the browser, so we
-    // resolve it into a short-lived served URL here — the ownership check above
+    // resolve it into a short-lived served URL here — the access check above
     // already gates it, which is why this can stay on the public API.
     // #endregion
     const storageUrl = file.storageId
@@ -162,21 +130,8 @@ export const getFolderContents = query({
     parentId: v.optional(v.id("files")),
   },
   handler: async (ctx, args) => {
-    // Check who is logged in
-    const identity = await verifyAuth(ctx);
-
-    // Load the project
-    const project = await ctx.db.get("projects", args.projectId);
-
-    // Stop if the project does not exist
-    if (!project) {
-      throw new Error("Project not found!");
-    }
-
-    // Stop if this user does not own the project
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project!");
-    }
+    // Check who is logged in and that they own or contribute to the project
+    await verifyProjectAccess(ctx, args.projectId);
 
     // Get every file/folder that shares this projectId and parentId.
     // No parentId means "at the project root" (not inside any folder).
@@ -212,21 +167,8 @@ export const createFile = mutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    // Check who is logged in
-    const identity = await verifyAuth(ctx);
-
-    // Load the project
-    const project = await ctx.db.get("projects", args.projectId);
-
-    // Stop if the project does not exist
-    if (!project) {
-      throw new Error("Project not found!");
-    }
-
-    // Stop if this user does not own the project
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project!");
-    }
+    // Check who is logged in and that they own or contribute to the project
+    const { project } = await verifyProjectAccess(ctx, args.projectId);
 
     // If a parent folder was given, make sure it's valid
     if (args.parentId) {
@@ -296,21 +238,8 @@ export const createFolder = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    // Check who is logged in
-    const identity = await verifyAuth(ctx);
-
-    // Load the project
-    const project = await ctx.db.get("projects", args.projectId);
-
-    // Stop if the project does not exist
-    if (!project) {
-      throw new Error("Project not found!");
-    }
-
-    // Stop if this user does not own the project
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project!");
-    }
+    // Check who is logged in and that they own or contribute to the project
+    const { project } = await verifyProjectAccess(ctx, args.projectId);
 
     // If a parent folder was given, make sure it's valid
     if (args.parentId) {
@@ -379,7 +308,7 @@ export const renameFile = mutation({
   },
   handler: async (ctx, args) => {
     // Check who is logged in
-    const identity = await verifyAuth(ctx);
+    await verifyAuth(ctx);
 
     // Load the file
     const file = await ctx.db.get("files", args.id);
@@ -389,17 +318,8 @@ export const renameFile = mutation({
       throw new Error("File not found.");
     }
 
-    // Load the project this file belongs to
-    const project = await ctx.db.get("projects", file.projectId);
-
-    if (!project) {
-      throw new Error("Project not found.");
-    }
-
-    // Stop if this user does not own the project
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project!");
-    }
+    // Stop unless this user owns or contributes to the file's project
+    const { project } = await verifyProjectAccess(ctx, file.projectId);
 
     // Get this file's siblings (everything else at the same location)
     const siblings = await ctx.db
@@ -472,7 +392,7 @@ export const moveFile = mutation({
   },
   handler: async (ctx, args) => {
     // Check who is logged in
-    const identity = await verifyAuth(ctx);
+    await verifyAuth(ctx);
 
     // Load the file
     const file = await ctx.db.get("files", args.id);
@@ -482,17 +402,8 @@ export const moveFile = mutation({
       throw new Error("File not found.");
     }
 
-    // Load the project this file belongs to
-    const project = await ctx.db.get("projects", file.projectId);
-
-    if (!project) {
-      throw new Error("Project not found.");
-    }
-
-    // Stop if this user does not own the project
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project!");
-    }
+    // Stop unless this user owns or contributes to the file's project
+    const { project } = await verifyProjectAccess(ctx, file.projectId);
 
     // Dropped back into the folder it already lives in -> nothing to do
     if (file.parentId === args.newParentId) {
@@ -571,7 +482,7 @@ export const deleteFile = mutation({
   },
   handler: async (ctx, args) => {
     // Check who is logged in
-    const identity = await verifyAuth(ctx);
+    await verifyAuth(ctx);
 
     // Load the file
     const file = await ctx.db.get("files", args.id);
@@ -581,17 +492,8 @@ export const deleteFile = mutation({
       throw new Error("File not found.");
     }
 
-    // Load the project this file belongs to
-    const project = await ctx.db.get("projects", file.projectId);
-
-    if (!project) {
-      throw new Error("Project not found.");
-    }
-
-    // Stop if this user does not own the project
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project!");
-    }
+    // Stop unless this user owns or contributes to the file's project
+    const { project } = await verifyProjectAccess(ctx, file.projectId);
 
     // Delete a file or folder, and if it's a folder, delete everything
     // inside it first (children, grandchildren, and so on)
@@ -648,7 +550,7 @@ export const updateFile = mutation({
   },
   handler: async (ctx, args) => {
     // Check who is logged in
-    const identity = await verifyAuth(ctx);
+    await verifyAuth(ctx);
 
     // Load the file
     const file = await ctx.db.get("files", args.fileId);
@@ -658,17 +560,8 @@ export const updateFile = mutation({
       throw new Error("File not found.");
     }
 
-    // Load the project this file belongs to
-    const project = await ctx.db.get("projects", file.projectId);
-
-    if (!project) {
-      throw new Error("Project not found.");
-    }
-
-    // Stop if this user does not own the project
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project!");
-    }
+    // Stop unless this user owns or contributes to the file's project
+    const { project } = await verifyProjectAccess(ctx, file.projectId);
 
     // Save the new content
     await ctx.db.patch("files", args.fileId, {
