@@ -441,6 +441,128 @@ export const renameFile = mutation({
   },
 });
 
+// #region moveFile - why it works this way
+/*
+  Drag & drop in the file explorer lands here. A "move" is just changing the
+  item's parentId - the same trick that makes renaming cheap works for moving:
+  children point at their parent by id, so moving a folder carries its whole
+  subtree along with ONE patch, no matter how deep it goes.
+
+  There is no stored "order" field: every folder listing is re-sorted on read
+  (folders first, then A-Z - see getFolderContents), so once the parentId is
+  saved the item automatically shows up in its sorted spot in the new folder.
+
+  Guards, on top of the usual auth/ownership checks:
+  1. The destination must be a folder in the same project.
+  2. A folder can't be dropped into itself or into one of its own
+     descendants - that would cut the subtree off from the root and create a
+     parentId cycle. We walk UP from the destination to the root and fail if
+     we meet the folder being moved.
+  3. No name clash with a sibling of the same type at the destination
+     (same rule as create/rename).
+*/
+// #endregion
+
+// Move a file or folder into another folder (or to the project root)
+// #moveFile -> by fileId, optional(newParentId) - undefined means project root
+export const moveFile = mutation({
+  args: {
+    id: v.id("files"),
+    newParentId: v.optional(v.id("files")),
+  },
+  handler: async (ctx, args) => {
+    // Check who is logged in
+    const identity = await verifyAuth(ctx);
+
+    // Load the file
+    const file = await ctx.db.get("files", args.id);
+
+    // Stop if the file does not exist
+    if (!file) {
+      throw new Error("File not found.");
+    }
+
+    // Load the project this file belongs to
+    const project = await ctx.db.get("projects", file.projectId);
+
+    if (!project) {
+      throw new Error("Project not found.");
+    }
+
+    // Stop if this user does not own the project
+    if (project.ownerId !== identity.subject) {
+      throw new Error("Unauthorized access to this project!");
+    }
+
+    // Dropped back into the folder it already lives in -> nothing to do
+    if (file.parentId === args.newParentId) {
+      return;
+    }
+
+    // If the destination is a folder (not the root), make sure it's valid
+    if (args.newParentId) {
+      const parent = await ctx.db.get("files", args.newParentId);
+
+      // 1. The destination must exist
+      if (!parent) {
+        throw new Error("Destination folder not found!");
+      }
+
+      // 2. The destination must belong to the same project
+      if (parent.projectId !== file.projectId) {
+        throw new Error("Destination folder belongs to a different project!");
+      }
+
+      // 3. The destination must be a folder, not a file
+      if (parent.type !== "folder") {
+        throw new Error("Cannot move items inside a file!");
+      }
+
+      // 4. Walk up from the destination to the root - if we pass through the
+      //    item being moved, the destination is inside it (or is it)
+      let currentId: Id<"files"> | undefined = args.newParentId;
+      while (currentId) {
+        if (currentId === args.id) {
+          throw new Error("Cannot move a folder into itself.");
+        }
+        const current = (await ctx.db.get("files", currentId)) as
+          Doc<"files"> | null;
+        currentId = current?.parentId;
+      }
+    }
+
+    // Get everything already at the destination (same project + new parent)
+    const siblings = await ctx.db
+      .query("files")
+      .withIndex("by_project_parent", (q) =>
+        q.eq("projectId", file.projectId).eq("parentId", args.newParentId),
+      )
+      .collect();
+
+    // Stop if the destination already has an item with this name and type
+    const existing = siblings.find(
+      (sibling) => sibling.name === file.name && sibling.type === file.type,
+    );
+
+    if (existing) {
+      throw new Error(
+        `A ${file.type} named "${file.name}" already exists in the destination folder.`,
+      );
+    }
+
+    // Re-parent the item - its children (if any) come along automatically
+    await ctx.db.patch("files", args.id, {
+      parentId: args.newParentId,
+      updatedAt: Date.now(),
+    });
+
+    // Mark the project as updated too, since moving counts as a change
+    await ctx.db.patch("projects", project._id, {
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 // Delete a file, or delete a folder and everything inside it
 // #deleteFile -> by fileId, removes files/folders recursively via deleteRecursive()
 export const deleteFile = mutation({

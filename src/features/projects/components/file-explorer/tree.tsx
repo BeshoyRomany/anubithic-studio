@@ -7,7 +7,9 @@ import {
   useFolderContents,
   useRenameFile,
   useDeleteFile,
+  getMutationErrorMessage,
 } from "@/features/projects/hooks/use-files";
+import { toast } from "sonner";
 import { getItemPadding } from "./constants";
 import { LoadingRow } from "./loading-row";
 import { CreateInput } from "./create-input";
@@ -17,11 +19,18 @@ import { TreeItemWrapper } from "./tree-item-wrapper";
 import { RenameInput } from "./rename-input";
 import { useEditor } from "@/features/editor/hooks/use-editor";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
+import { useFileTreeDnd } from "./dnd";
+
+// How long a dragged item must hover a closed folder before it springs open
+const DRAG_EXPAND_DELAY = 500;
 
 interface TreeProps {
   projectId: Id<"projects">;
   item: Doc<"files">;
   level?: number;
+  // Drag & drop flags inherited from the ancestors (see "Drag & drop" below)
+  inDropTarget?: boolean;
+  inDraggedFolder?: boolean;
 }
 
 /** <Tree /> component lifecycle
@@ -76,7 +85,28 @@ interface TreeProps {
 // =============================================================================
 */
 
-export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
+/** Drag & drop flags flowing down the recursion
+// =============================================================================
+// Rows are rendered as flat siblings (a folder row, then its children rows),
+// not nested in one container - so a row can't tell by itself whether it sits
+// inside the hovered folder or inside the folder being dragged. Instead each
+// Tree works it out for itself and hands the answer down to its children:
+//
+//   isDropHighlighted = inDropTarget    || this folder is the drop target
+//   isDropInvalid     = inDraggedFolder || this item is the one being dragged
+//
+// so the whole subtree of the drop target gets tinted (VS Code style), and
+// the whole subtree of a dragged folder refuses drops.
+// =============================================================================
+*/
+
+export const Tree = ({
+  projectId,
+  item,
+  level = 0,
+  inDropTarget = false,
+  inDraggedFolder = false,
+}: TreeProps) => {
   //states
   const [isRenaming, setIsRenaming] = useState<boolean>(false);
   const [creating, setCreating] = useState<"file" | "folder" | null>(null);
@@ -115,9 +145,43 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
     enabled: item.type === "folder" && isOpen,
   });
 
+  // Drag & drop state for this row and the flags passed to its children
+  const { activeItem, dropTarget } = useFileTreeDnd();
+  const isDropTarget = dropTarget === item._id;
+  const isDropHighlighted = inDropTarget || isDropTarget;
+  const isDropInvalid = inDraggedFolder || activeItem?._id === item._id;
+
+  // Spring-loaded folders: hovering a closed folder while dragging opens it
+  // after a short delay, so items can be dropped deep into the tree. Leaving
+  // before the delay (dropTarget changes) clears the timer.
+  useEffect(() => {
+    if (!isDropTarget || isOpen) return;
+    const timer = setTimeout(
+      () => revealFolders([item._id]),
+      DRAG_EXPAND_DELAY,
+    );
+    return () => clearTimeout(timer);
+  }, [isDropTarget, isOpen, item._id, revealFolders]);
+
+  // Children of this folder, with the drag & drop flags inherited
+  const renderChildren = () =>
+    folderContents?.map((subItem) => (
+      <Tree
+        item={subItem}
+        projectId={projectId}
+        level={level + 1} //current level + 1
+        key={subItem._id}
+        inDropTarget={isDropHighlighted}
+        inDraggedFolder={isDropInvalid}
+      />
+    ));
+
   //functions
+  // Server rejections (e.g. duplicate name) surface as a toast
+  const showError = (error: unknown) =>
+    toast.error(getMutationErrorMessage(error));
+
   const handleCreate = (name: string) => {
-    console.log(name);
     setCreating(null);
     if (creating === "file") {
       createFile({
@@ -125,20 +189,20 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
         name,
         content: "",
         parentId: item._id,
-      });
+      }).catch(showError);
     } else {
       createFolder({
         projectId,
         name,
         parentId: item._id,
-      });
+      }).catch(showError);
     }
   };
   const handleRename = (newName: string) => {
     setIsRenaming(false);
     if (newName === item.name) return;
 
-    renameFile({ id: item._id, newName });
+    renameFile({ id: item._id, newName }).catch(showError);
   };
   const startCreating = (type: "file" | "folder") => {
     // Creating inside a folder needs it open first - revealFolders with a
@@ -168,13 +232,15 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
         item={item}
         level={level}
         isActive={isActive}
+        isDropHighlighted={isDropHighlighted}
+        isDropInvalid={isDropInvalid}
         ref={rowRef}
         onClick={() => openFile(item._id, { pinned: false })}
         onDoubleClick={() => openFile(item._id, { pinned: true })}
         onRename={() => setIsRenaming(true)}
         onDelete={() => {
           closeTab(item._id);
-          deleteFile({ id: item._id });
+          deleteFile({ id: item._id }).catch(showError);
         }}
       >
         {/* The file Children */}
@@ -221,14 +287,7 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
               onCancel={() => setCreating(null)}
               onSubmit={handleCreate}
             />
-            {folderContents?.map((subItem) => (
-              <Tree
-                item={subItem}
-                projectId={projectId}
-                level={level + 1} //current level + 1
-                key={subItem._id}
-              />
-            ))}
+            {renderChildren()}
           </>
         )}
       </>
@@ -248,14 +307,7 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
         {isOpen && (
           <>
             {folderContents === undefined && <LoadingRow level={level + 1} />}
-            {folderContents?.map((subItem) => (
-              <Tree
-                item={subItem}
-                projectId={projectId}
-                level={level + 1} //current level + 1
-                key={subItem._id}
-              />
-            ))}
+            {renderChildren()}
           </>
         )}
       </>
@@ -268,11 +320,13 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
         item={item}
         level={level}
         isActive={false}
+        isDropHighlighted={isDropHighlighted}
+        isDropInvalid={isDropInvalid}
         onClick={() => toggleFolder(item._id)}
         onDoubleClick={() => {}}
         onRename={() => setIsRenaming(true)}
         onDelete={() => {
-          deleteFile({ id: item._id });
+          deleteFile({ id: item._id }).catch(showError);
         }}
         onCreateFile={() => startCreating("file")}
         onCreateFolder={() => startCreating("folder")}
@@ -285,14 +339,7 @@ export const Tree = ({ projectId, item, level = 0 }: TreeProps) => {
       {isOpen && (
         <>
           {folderContents === undefined && <LoadingRow level={level + 1} />}
-          {folderContents?.map((subItem) => (
-            <Tree
-              item={subItem}
-              projectId={projectId}
-              level={level + 1} //current level + 1
-              key={subItem._id}
-            />
-          ))}
+          {renderChildren()}
         </>
       )}
     </>

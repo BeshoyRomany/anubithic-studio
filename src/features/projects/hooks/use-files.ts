@@ -13,6 +13,27 @@ const sortFiles = <T extends { type: "file" | "folder"; name: string }>(
   });
 };
 
+// The server blocks duplicates, but optimistic updates run first - skip the
+// fake row on a clash so it doesn't flash in and silently vanish
+const hasNameClash = (
+  files: Doc<"files">[],
+  name: string,
+  type: "file" | "folder",
+  exceptId?: Id<"files">,
+) =>
+  files.some(
+    (file) => file.name === name && file.type === type && file._id !== exceptId,
+  );
+
+// Pull the readable message out of a Convex server error, for toasts
+export const getMutationErrorMessage = (
+  error: unknown,
+  fallback = "Something went wrong.",
+) => {
+  const raw = error instanceof Error ? error.message : String(error);
+  return raw.match(/Uncaught Error: (.*)/)?.[1] ?? fallback;
+};
+
 export const useFile = (fileId: Id<"files"> | null) => {
   return useQuery(api.files.getFile, fileId ? { fileId } : "skip");
 };
@@ -40,6 +61,9 @@ export const useCreateFile = () => {
       });
 
       if (existingFiles !== undefined) {
+        // Name taken -> skip the fake row
+        if (hasNameClash(existingFiles, args.name, "file")) return;
+
         const now = Date.now();
         const newFile: Doc<"files"> = {
           _id: crypto.randomUUID() as Id<"files">,
@@ -80,6 +104,15 @@ export const useRenameFile = ({
       });
 
       if (existingFiles !== undefined) {
+        // Name taken -> keep the old name
+        const renamed = existingFiles.find((file) => file._id === args.id);
+        if (
+          renamed &&
+          hasNameClash(existingFiles, args.newName, renamed.type, args.id)
+        ) {
+          return;
+        }
+
         // update the file
         const updatedFiles = existingFiles.map((file) =>
           file._id === args.id ? { ...file, name: args.newName } : file,
@@ -138,6 +171,9 @@ export const useCreateFolder = () => {
       });
 
       if (existingFiles !== undefined) {
+        // Name taken -> skip the fake row
+        if (hasNameClash(existingFiles, args.name, "folder")) return;
+
         const now = Date.now();
         const newFolder = {
           _id: crypto.randomUUID() as Id<"files">,
@@ -155,6 +191,67 @@ export const useCreateFolder = () => {
           api.files.getFolderContents,
           { parentId: args.parentId, projectId: args.projectId },
           sortFiles([...existingFiles, newFolder]),
+        );
+      }
+    },
+  );
+};
+
+// #region useMoveFile - optimistic move
+/*
+  Drag & drop should feel instant, so the item jumps to its new folder before
+  the server answers. Unlike rename/delete, the hook doesn't need to be told
+  the SOURCE folder: getAllQueries hands us every cached folder listing, and
+  we simply look for the one that currently holds the item.
+
+  - Source listing      -> item filtered out
+  - Destination listing -> item added with its new parentId, then re-sorted
+                           (only if that folder is cached, i.e. it has been
+                           opened; otherwise the server result fills it in
+                           when it opens)
+
+  If the server rejects the move (name clash, folder into itself...), Convex
+  drops the optimistic state and the tree snaps back on its own.
+*/
+// #endregion
+export const useMoveFile = (projectId: Id<"projects">) => {
+  return useMutation(api.files.moveFile).withOptimisticUpdate(
+    (localStore, args) => {
+      const listings = localStore.getAllQueries(api.files.getFolderContents);
+
+      // Find the item in whichever cached listing currently contains it
+      let movedItem: Doc<"files"> | undefined;
+      for (const { args: queryArgs, value } of listings) {
+        if (queryArgs.projectId !== projectId || value === undefined) continue;
+        const found = value.find((file) => file._id === args.id);
+        if (!found) continue;
+
+        movedItem = found;
+        //remove it from the source folder/root
+        localStore.setQuery(
+          api.files.getFolderContents,
+          queryArgs,
+          value.filter((file) => file._id !== args.id),
+        );
+        break;
+      }
+
+      if (!movedItem) return;
+
+      //add it to the destination folder/root (if cached), sorted again
+      const destinationArgs = { projectId, parentId: args.newParentId };
+      const destination = localStore.getQuery(
+        api.files.getFolderContents,
+        destinationArgs,
+      );
+      if (destination !== undefined) {
+        localStore.setQuery(
+          api.files.getFolderContents,
+          destinationArgs,
+          sortFiles([
+            ...destination,
+            { ...movedItem, parentId: args.newParentId },
+          ]),
         );
       }
     },
