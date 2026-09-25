@@ -23,11 +23,11 @@ Next.js 16 (App Router, React 19) · Convex (database + server functions) · Cle
 
 This is the single most important thing to understand; getting it wrong causes auth failures.
 
-1. **Browser → Convex directly.** Client components use Convex React hooks. These call the *public* API in `convex/projects.ts`, `files.ts`, `conversations.ts`, which authenticate with `verifyAuth(ctx)` (`convex/auth.ts`) and check ownership against Clerk's `identity.subject`, stored as `ownerId`.
+1. **Browser → Convex directly.** Client components use Convex React hooks. These call the *public* API in `convex/projects.ts`, `files.ts`, `conversations.ts`, which authenticate with `verifyAuth(ctx)` (`convex/auth.ts`). Anything scoped to a project goes through `verifyProjectAccess(ctx, projectId, { minimum? })`, which admits the owner (`ownerId` = Clerk's `identity.subject` = `users.clerkId`) and active `projectContributors` rows (role `admin` or `contributor`). Roles rank owner > admin > contributor: pass `minimum: "admin"` for rename / export / managing contributors, `minimum: "owner"` for deleting the project and promoting/demoting admins. Don't hand-roll `project.ownerId !== identity.subject` checks — they lock contributors out.
 2. **Browser → Next.js route handlers** (`src/app/api/**`). These guard with Clerk's `auth()` from `@clerk/nextjs/server`, then either call Convex over HTTP or emit an Inngest event.
 3. **Server → Convex** (route handlers, Inngest functions). There is no Clerk identity in this zone, so it uses `convex/system.ts`: every function there takes an `internalKey` argument validated against `ANUBITHIC_STUDIO_CONVEX_INTERNAL_KEY`. Use the shared `ConvexHttpClient` in `src/lib/convex-client.ts`.
 
-Never call a `convex/system.ts` function from the browser, and never add a client-facing function that skips `verifyAuth`.
+Never call a `convex/system.ts` function from the browser, and never add a client-facing function that skips `verifyAuth`. Route handlers that act on a project must check the caller's role with `api.system.getProjectRole` (passing Clerk's `userId`) — the internal key alone authorizes the *server*, not the user.
 
 ### Event-driven background work
 
@@ -61,7 +61,7 @@ Route handlers get the user's GitHub token from Clerk (`clerkClient` OAuth acces
 
 ### Data model
 
-`convex/schema.ts`: `projects` (owner, import/export status, WebContainer `settings`), `files` (flat rows with `parentId` forming the tree; text in `content` *or* binary in `storageId`), `conversations`, `messages` (`status`, and a `steps` array driving the agent progress UI). Keep queries index-backed: `by_owner`, `by_project`, `by_parent`, `by_project_parent`, `by_conversation`, `by_project_status`. `convex/_generated/` is auto-generated — never edit it.
+`convex/schema.ts`: `users` (Clerk mirror keyed by `clerkId`, lowercased `email`; upserted by `users.store` from `UserSync` in `<Providers>` — the email comes from the Clerk session-token claims, never the client), `projectContributors` (invites by email: always `pending` until the invitee ACCEPTS — email must match the verified Clerk token — then `active` with `userId`; accept/decline on the home page or `/invites/[inviteId]`; managed in `convex/contributors.ts`), `presence` (one row per project+user with the active `fileId` and `lastSeenAt`; heartbeated by `usePresence` inside `<PresenceBar>` — staleness is judged client-side because queries don't re-run as time passes), `projects` (owner, import/export status, WebContainer `settings`), `files` (flat rows with `parentId` forming the tree; text in `content` *or* binary in `storageId`), `conversations`, `messages` (`status`, and a `steps` array driving the agent progress UI). Keep queries index-backed: `by_owner`, `by_project`, `by_parent`, `by_project_parent`, `by_conversation`, `by_project_status`. `convex/_generated/` is auto-generated — never edit it.
 
 ## Structure & boundaries
 
@@ -82,6 +82,7 @@ Route handlers get the user's GitHub token from Clerk (`clerkClient` OAuth acces
 
 ## Gotchas
 
+- `<Providers>` uses `ConvexProviderWithAuth` with our own `useAuthFromClerk` (`src/features/auth/hooks/`), not `ConvexProviderWithClerk`. The only difference is that the Clerk plan claim `pla` is in its dependencies, so Convex re-authenticates when the plan changes and Pro gates update without a reload. Don't swap it back.
 - `convex/auth.config.ts` throws at import time if `CLERK_JWT_ISSUER_DOMAIN` is missing. `.env.local` also needs Clerk, Convex, `ANUBITHIC_STUDIO_CONVEX_INTERNAL_KEY`, model provider keys, Firecrawl, and Sentry.
 - `ANUBITHIC_STUDIO_CONVEX_INTERNAL_KEY` must be set in *both* the Next.js env and the Convex deployment env, or every server→Convex call fails.
 - Sentry wraps `next.config.ts` via `withSentryConfig`; instrumentation is in `src/instrumentation*.ts`.

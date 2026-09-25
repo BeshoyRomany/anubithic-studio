@@ -10,6 +10,7 @@ import { PreviewView } from "../components/preview-view";
 import { ExportPopover } from "../components/export-popover";
 import { DeleteProjectDialog } from "../components/delete-project-dialog";
 import { Trash2Icon } from "lucide-react";
+import { useProject } from "../hooks/use-projects";
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 800;
@@ -40,6 +41,10 @@ interface ProjectIdViewProps {
 export const ProjectIdView = ({ projectId }: ProjectIdViewProps) => {
   const [activeView, setActiveView] = useState<"editor" | "preview">("editor");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const project = useProject(projectId);
+  //Delete → owner only. Export → owner or admin.
+  const isOwner = project?.role === "owner";
+  const canExport = isOwner || project?.role === "admin";
   return (
     <div className="h-full flex flex-col">
       <DeleteProjectDialog
@@ -59,16 +64,21 @@ export const ProjectIdView = ({ projectId }: ProjectIdViewProps) => {
           isActive={activeView === "preview"}
           onClick={() => setActiveView("preview")}
         />
+        {/* Project-level actions, hidden from roles that can't use them
+            (the server rejects them anyway): Delete is owner-only, Export is
+            for the owner and admins. */}
         <div className="flex-1 flex justify-end h-full">
-          <div
-            role="button"
-            onClick={() => setDeleteDialogOpen(true)}
-            className="flex items-center gap-1.5 h-full px-3 cursor-pointer text-muted-foreground border-l hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2Icon className="size-3.5" />
-            <span className="text-sm">Delete</span>
-          </div>
-          <ExportPopover projectId={projectId} />
+          {isOwner && (
+            <div
+              role="button"
+              onClick={() => setDeleteDialogOpen(true)}
+              className="flex items-center gap-1.5 h-full px-3 cursor-pointer text-muted-foreground border-l hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2Icon className="size-3.5" />
+              <span className="text-sm">Delete</span>
+            </div>
+          )}
+          {canExport && <ExportPopover projectId={projectId} />}
         </div>
       </nav>
       <div className="flex-1 relative">

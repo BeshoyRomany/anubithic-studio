@@ -2,6 +2,8 @@ import React from "react";
 import ky, { HTTPError } from "ky";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useOpenBilling } from "@/features/auth/hooks/use-open-billing";
+import { ProBadge } from "@/components/pro-badge";
 import { useForm } from "@tanstack/react-form";
 import { useClerk } from "@clerk/nextjs";
 import { FaGithub } from "react-icons/fa";
@@ -58,6 +60,8 @@ export const ExportPopover = ({ projectId, trigger }: ExportPopoverProps) => {
   const project = useProject(projectId);
   const [open, setOpen] = React.useState(false);
   const { openUserProfile } = useClerk();
+  //Upgrade → straight to the Billing page of the profile modal
+  const openBilling = useOpenBilling();
 
   const exportStatus = project?.exportStatus;
   const exportRepoUrl = project?.exportRepoUrl;
@@ -93,7 +97,7 @@ export const ExportPopover = ({ projectId, trigger }: ExportPopoverProps) => {
             toast.error("Upgrade to import repositories", {
               action: {
                 label: "Upgrade",
-                onClick: () => openUserProfile(),
+                onClick: () => openBilling(),
               },
             });
             setOpen(false);
@@ -213,7 +217,10 @@ export const ExportPopover = ({ projectId, trigger }: ExportPopoverProps) => {
       >
         <div className="space-y-4">
           <div className="space-y-1">
-            <h4 className="font-medium text-sm">Export to GitHub</h4>
+            <h4 className="flex items-center gap-1.5 font-medium text-sm">
+              Export to GitHub
+              <ProBadge />
+            </h4>
             <p className="text-xs text-muted-foreground">
               Export your project to a GitHub repository.
             </p>
@@ -331,6 +338,7 @@ export const ExportPopover = ({ projectId, trigger }: ExportPopoverProps) => {
           <div className="flex items-center gap-1.5 h-full px-3 cursor-pointer text-muted-foreground border-l hover:bg-accent/30">
             {getStatusIcon()}
             <span className="text-sm">Export</span>
+            <ProBadge />
           </div>
         )}
       </PopoverTrigger>

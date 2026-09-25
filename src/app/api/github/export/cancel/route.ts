@@ -31,6 +31,17 @@ export async function POST(request: Request) {
     );
   }
 
+  //Exporting is a project-level action → owner or admin
+  const role = await convex.query(api.system.getProjectRole, {
+    internalKey,
+    projectId: projectId as Id<"projects">,
+    userId,
+  });
+
+  if (role !== "owner" && role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   //start a background job for cancel the exporting
   const event = await inngest.send({
     name: "github/export.cancel",

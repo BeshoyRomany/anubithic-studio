@@ -37,6 +37,17 @@ export async function POST(request: Request) {
     );
   }
 
+  //Owner or active contributor only
+  const role = await convex.query(api.system.getProjectRole, {
+    internalKey,
+    projectId: projectId as Id<"projects">,
+    userId,
+  });
+
+  if (!role) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   //Find all processing messages in this project
   //every time the user hit "Cancel endpoint" we gonna cancel each single message we currently processing
   const processingMessages = await convex.query(

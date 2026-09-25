@@ -5,6 +5,7 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import { SignInButton, SignOutButton } from "@clerk/nextjs";
 import { Poppins } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { ProBadge } from "@/components/pro-badge";
 import { FaGithub } from "react-icons/fa";
 import { FolderOpenIcon, LogOutIcon, RocketIcon } from "lucide-react";
 import { ProjectsCommandDialog } from "./projects-command-dialog";
@@ -13,6 +14,7 @@ import { ProjectsBackground } from "./projects-background";
 import { GlowCard } from "./glow-dialog";
 import { NewProjectPrompt } from "./new-project-prompt";
 import { RecentProjectsGrid } from "./recent-projects-grid";
+import { PendingInvites } from "./pending-invites";
 import { ShortcutKeys } from "./shortcut-keys";
 
 const font = Poppins({
@@ -134,6 +136,7 @@ export const ProjectsView = () => {
               >
                 <FaGithub className="size-4" />
                 Import from GitHub
+                <ProBadge />
                 <ShortcutKeys keys={["I"]} />
               </button>
               <button
@@ -145,6 +148,9 @@ export const ProjectsView = () => {
                 <ShortcutKeys keys={["K"]} />
               </button>
             </div>
+
+            {/* Team invites waiting for my answer (renders nothing if none) */}
+            <PendingInvites />
 
             <RecentProjectsGrid onViewAll={() => setCommandDialogOpen(true)} />
           </Authenticated>

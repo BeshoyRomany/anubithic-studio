@@ -8,6 +8,7 @@ import {
   GlobeIcon,
   LoaderIcon,
   Trash2Icon,
+  UsersIcon,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -45,10 +46,12 @@ const ProjectCard = ({
   data,
   isLatest,
 }: {
-  data: Doc<"projects">;
+  data: Doc<"projects"> & { role: "owner" | "admin" | "contributor" };
   isLatest: boolean;
 }) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  //Projects shared with me can't be deleted by me → no delete button
+  const isOwner = data.role === "owner";
 
   return (
     <div className="group relative min-w-0">
@@ -57,7 +60,8 @@ const ProjectCard = ({
         className={cn(
           "flex min-w-0 items-center gap-3 rounded-xl border bg-white/3 py-2.5 pl-3 pr-3 backdrop-blur-sm transition-[color,background-color,border-color,padding]",
           // Make room for the delete button only while it is visible (see below)
-          "group-hover:pr-10 group-focus-within:pr-10 [@media(hover:none)]:pr-10",
+          isOwner &&
+            "group-hover:pr-10 group-focus-within:pr-10 [@media(hover:none)]:pr-10",
           "group-hover:border-logo/40 group-hover:bg-logo/5",
           isLatest ? "border-logo/30" : "border-white/10",
         )}
@@ -66,6 +70,12 @@ const ProjectCard = ({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{data.name}</p>
           <p className="truncate text-xs text-muted-foreground">
+            {!isOwner && (
+              <span className="mr-1 inline-flex items-center gap-0.5 text-logo">
+                <UsersIcon className="size-3" />
+                {data.role === "admin" ? "Shared · Admin ·" : "Shared ·"}
+              </span>
+            )}
             {formatTimestamp(data.updatedAt)}
           </p>
         </div>
@@ -77,25 +87,29 @@ const ProjectCard = ({
           <ArrowUpRightIcon className="size-4 shrink-0 text-muted-foreground/0 transition-colors group-hover:text-logo" />
         )}
       </Link>
-      <button
-        type="button"
-        aria-label={`Delete project ${data.name}`}
-        onClick={() => setDeleteDialogOpen(true)}
-        className={cn(
-          "absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-[color,background-color,opacity] hover:bg-destructive/10 hover:text-destructive",
-          // Hidden until the card is hovered; still reachable by keyboard (focus)
-          // and always shown on touch screens, which have no hover
-          "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
-        )}
-      >
-        <Trash2Icon className="size-3.5" />
-      </button>
-      <DeleteProjectDialog
-        projectId={data._id}
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        variant="glow"
-      />
+      {isOwner && (
+        <>
+          <button
+            type="button"
+            aria-label={`Delete project ${data.name}`}
+            onClick={() => setDeleteDialogOpen(true)}
+            className={cn(
+              "absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-[color,background-color,opacity] hover:bg-destructive/10 hover:text-destructive",
+              // Hidden until the card is hovered; still reachable by keyboard (focus)
+              // and always shown on touch screens, which have no hover
+              "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
+            )}
+          >
+            <Trash2Icon className="size-3.5" />
+          </button>
+          <DeleteProjectDialog
+            projectId={data._id}
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            variant="glow"
+          />
+        </>
+      )}
     </div>
   );
 };
