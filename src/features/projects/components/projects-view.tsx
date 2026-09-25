@@ -4,23 +4,25 @@ import { useEffect, useState } from "react";
 import { Poppins } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { FaGithub } from "react-icons/fa";
-import { SparkleIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
-import { useIsMac } from "@/hooks/useIsMac";
-import { ProjectsList } from "./projects-list";
+import { FolderOpenIcon } from "lucide-react";
 import { ProjectsCommandDialog } from "./projects-command-dialog";
 import { ImportGithubDialog } from "./import-github-dialog";
-import { NewProjectDialog } from "./new-project-dialog";
+import { ProjectsBackground } from "./projects-background";
+import { GlowCard } from "./glow-dialog";
+import { NewProjectPrompt } from "./new-project-prompt";
+import { RecentProjectsGrid } from "./recent-projects-grid";
+import { ShortcutKeys } from "./shortcut-keys";
+
 const font = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
+
+const PROMPT_ID = "home-prompt";
+
 export const ProjectsView = () => {
-  const isMac = useIsMac();
   const [commandDialogOpen, setCommandDialogOpen] = useState<boolean>(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -34,7 +36,9 @@ export const ProjectsView = () => {
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
         e.preventDefault();
-        setNewProjectDialogOpen(true);
+        const prompt = document.getElementById(PROMPT_ID);
+        prompt?.scrollIntoView({ behavior: "smooth", block: "center" });
+        prompt?.focus();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -51,67 +55,70 @@ export const ProjectsView = () => {
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
       />
-      <NewProjectDialog
-        open={newProjectDialogOpen}
-        onOpenChange={setNewProjectDialogOpen}
-      />
-      <div className="min-h-screen bg-sidebar flex flex-col items-center justify-center p-6 md:p-16">
-        <div className="w-full max-w-sm mx-auto flex flex-col gap-4 items-center">
-          <div className="flex justify-between gap-4 w-full items-center">
-            <div className="flex items-center gap-2 w-full group/logo">
-              <img
-                src={"/logo.svg"}
-                alt="Anubithic"
-                className="size-14 md:size-20"
-              />
-              <h1
-                className={cn(
-                  "text-2xl md:text-3xl font-semibold",
-                  font.className,
-                )}
-              >
-                Anubithic/
-                <pre className="text-logo  font-light inline-block">Studio</pre>
-              </h1>
-            </div>
+      <ProjectsBackground />
+      <main className="relative flex min-h-screen flex-col items-center justify-center px-4 py-8 md:py-10">
+        <div className="relative z-10 flex w-full max-w-2xl flex-col items-center gap-6">
+          {/* Brand */}
+          <div className={cn("flex items-center gap-3", font.className)}>
+            <img
+              src={"/logo.svg"}
+              alt="Anubithic"
+              className="size-9 drop-shadow-[0_0_18px_rgba(212,170,90,0.35)]"
+            />
+            <span className="text-lg font-semibold">
+              Anubithic/
+              <span className="font-mono font-light text-logo">Studio</span>
+            </span>
           </div>
-          <div className="flex flex-col gap-4 w-full">
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant={"outline"}
-                onClick={() => setNewProjectDialogOpen(true)}
-                className="h-full items-start justify-start p-4 bg-background border flex flex-col gap-6 rounded-none"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <SparkleIcon className="size-4" />
-                  <Kbd className="bg-accent border">
-                    {isMac ? "⌘J" : "Ctrl+J"}
-                  </Kbd>
-                </div>
-                <div>
-                  <span className="text-sm">New</span>
-                </div>
-              </Button>
-              <Button
-                variant={"outline"}
-                onClick={() => setImportDialogOpen(true)}
-                className="h-full items-start justify-start p-4 bg-background border flex flex-col gap-6 rounded-none"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <FaGithub className="size-4" />
-                  <Kbd className="bg-accent border">
-                    {isMac ? "⌘I" : "Ctrl+I"}
-                  </Kbd>
-                </div>
-                <div>
-                  <span className="text-sm">Import</span>
-                </div>
-              </Button>
-            </div>
-            <ProjectsList onViewAll={() => setCommandDialogOpen(true)} />
+
+          {/* Headline */}
+          <div className="flex flex-col items-center gap-2 text-center">
+            <h1
+              className={cn(
+                "text-3xl font-semibold tracking-tight md:text-4xl",
+                font.className,
+              )}
+            >
+              What will you{" "}
+              <span className="bg-linear-to-r from-logo via-amber-200 to-logo bg-clip-text text-transparent">
+                build
+              </span>{" "}
+              today?
+            </h1>
+            <p className="max-w-lg text-sm text-muted-foreground">
+              Prompt full projects into existence, refine every line of code,
+              and preview instantly — entirely in your browser.
+            </p>
           </div>
+
+          {/* Prompt */}
+          <GlowCard className="w-full">
+            <NewProjectPrompt textareaId={PROMPT_ID} />
+          </GlowCard>
+
+          {/* Secondary actions */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              onClick={() => setImportDialogOpen(true)}
+              className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/3 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-logo/50 hover:text-foreground"
+            >
+              <FaGithub className="size-4" />
+              Import from GitHub
+              <ShortcutKeys keys={["I"]} />
+            </button>
+            <button
+              onClick={() => setCommandDialogOpen(true)}
+              className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/3 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-logo/50 hover:text-foreground"
+            >
+              <FolderOpenIcon className="size-4" />
+              All projects
+              <ShortcutKeys keys={["K"]} />
+            </button>
+          </div>
+
+          <RecentProjectsGrid onViewAll={() => setCommandDialogOpen(true)} />
         </div>
-      </div>
+      </main>
     </>
   );
 };
