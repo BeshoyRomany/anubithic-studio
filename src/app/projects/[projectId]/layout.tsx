@@ -1,4 +1,5 @@
 import { ProjectIdLayout } from "@/features/projects/layouts/project-id-layout";
+import { AuthGuard } from "@/features/auth/components/auth-guard";
 import React from "react";
 import { Id } from "../../../../convex/_generated/dataModel";
 
@@ -13,8 +14,10 @@ export default async function Layout({
 }: ProjectIdLayoutPageProps) {
   const { projectId } = await params;
   return (
-    <ProjectIdLayout projectId={projectId as Id<"projects">}>
-      {children}
-    </ProjectIdLayout>
+    <AuthGuard>
+      <ProjectIdLayout projectId={projectId as Id<"projects">}>
+        {children}
+      </ProjectIdLayout>
+    </AuthGuard>
   );
 }
