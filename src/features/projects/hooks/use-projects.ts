@@ -94,3 +94,32 @@ export const useRenameProject = () => {
 export const useUpdateProjectSettings = () => {
   return useMutation(api.projects.updateSettings);
 };
+
+//Removes the project (children are cleaned up server side in the background).
+//Optimistically drops it from both cached lists so the card disappears instantly.
+export const useRemoveProject = () => {
+  return useMutation(api.projects.remove).withOptimisticUpdate(
+    (localStore, args) => {
+      const existingProjects = localStore.getQuery(api.projects.get);
+      if (existingProjects !== undefined) {
+        localStore.setQuery(
+          api.projects.get,
+          {},
+          existingProjects.filter((project) => project._id !== args.projectId),
+        );
+      }
+
+      const limit = 6;
+      const existingPartial = localStore.getQuery(api.projects.getPartial, {
+        limit,
+      });
+      if (existingPartial !== undefined) {
+        localStore.setQuery(
+          api.projects.getPartial,
+          { limit },
+          existingPartial.filter((project) => project._id !== args.projectId),
+        );
+      }
+    },
+  );
+};

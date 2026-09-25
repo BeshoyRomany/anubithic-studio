@@ -50,8 +50,11 @@ const formSchema = z.object({
 
 interface ExportPopoverProps {
   projectId: Id<"projects">;
+  //Optional custom trigger — used by the delete-project dialog to offer
+  //"Export first" with the exact same export flow. Defaults to the tab-bar button.
+  trigger?: React.ReactNode;
 }
-export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
+export const ExportPopover = ({ projectId, trigger }: ExportPopoverProps) => {
   const project = useProject(projectId);
   const [open, setOpen] = React.useState(false);
   const { openUserProfile } = useClerk();
@@ -324,10 +327,12 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className="flex items-center gap-1.5 h-full px-3 cursor-pointer text-muted-foreground border-l hover:bg-accent/30">
-          {getStatusIcon()}
-          <span className="text-sm">Export</span>
-        </div>
+        {trigger ?? (
+          <div className="flex items-center gap-1.5 h-full px-3 cursor-pointer text-muted-foreground border-l hover:bg-accent/30">
+            {getStatusIcon()}
+            <span className="text-sm">Export</span>
+          </div>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-80" align="start">
         {renderContent()}

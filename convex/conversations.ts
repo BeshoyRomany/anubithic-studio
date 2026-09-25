@@ -122,3 +122,55 @@ export const getMessages = query({
       .collect();
   },
 });
+
+//#region Remove conversation
+//Deletes a conversation AND every message that belongs to it (cascade delete).
+//Convex has no foreign-key cascades, so we collect the messages through the
+//"by_conversation" index and delete them one by one inside the same mutation —
+//a mutation is a transaction, so either everything is removed or nothing is.
+//
+//We refuse to delete while a message is still "processing": the Inngest
+//"processMessage" job would keep patching rows that no longer exist and fail.
+//The user must cancel (or wait for) the running request first.
+//#endregion
+export const remove = mutation({
+  args: {
+    id: v.id("conversations"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await verifyAuth(ctx);
+
+    const conversation = await ctx.db.get("conversations", args.id);
+
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
+    const project = await ctx.db.get("projects", conversation.projectId);
+
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    if (project.ownerId !== identity.subject) {
+      throw new Error("Unauthorized to access this project");
+    }
+
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.id))
+      .collect();
+
+    if (messages.some((message) => message.status === "processing")) {
+      throw new Error(
+        "Cannot delete a conversation while a message is processing",
+      );
+    }
+
+    for (const message of messages) {
+      await ctx.db.delete("messages", message._id);
+    }
+
+    await ctx.db.delete("conversations", args.id);
+  },
+});
