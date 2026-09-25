@@ -7,19 +7,15 @@ import { useClerk } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { FaGithub } from "react-icons/fa";
+
+import { Dialog } from "@/components/ui/dialog";
 
 import { Input } from "@/components/ui/input";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 
 import { Id } from "../../../../convex/_generated/dataModel";
+import { GlowDialogContent, GlowDialogHeader } from "./glow-dialog";
 
 const formSchema = z.object({
   url: z.url("Please enter a valid URL"),
@@ -100,14 +96,12 @@ export const ImportGithubDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Import from GitHub</DialogTitle>
-          <DialogDescription>
-            Enter a GitHub repository URL to import. A new project will be
-            created with the repository contents.
-          </DialogDescription>
-        </DialogHeader>
+      <GlowDialogContent>
+        <GlowDialogHeader
+          title="Import from GitHub"
+          description="Paste a repository URL — a new project will be created with its contents."
+          icon={<FaGithub aria-hidden className="size-6 shrink-0 text-logo" />}
+        />
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -120,8 +114,13 @@ export const ImportGithubDialog = ({
                 field.state.meta.isTouched && !field.state.meta.isValid;
 
               return (
-                <Field data-invalid={isInvalid}>
-                  <FieldLabel htmlFor={field.name}>Repository URL</FieldLabel>
+                <Field data-invalid={isInvalid} className="px-5 pt-4 pb-5">
+                  <FieldLabel
+                    htmlFor={field.name}
+                    className="text-xs text-muted-foreground"
+                  >
+                    Repository URL
+                  </FieldLabel>
                   <Input
                     id={field.name}
                     name={field.name}
@@ -130,32 +129,46 @@ export const ImportGithubDialog = ({
                     onChange={(e) => field.handleChange(e.target.value)}
                     aria-invalid={isInvalid}
                     placeholder="https://github.com/owner/repo"
+                    autoComplete="off"
+                    className="h-10 rounded-lg border-white/10 bg-white/3! placeholder:text-muted-foreground/60 focus-visible:border-logo/60 focus-visible:ring-logo/20"
                   />
                   {isInvalid && <FieldError errors={field.state.meta.errors} />}
                 </Field>
               );
             }}
           </form.Field>
-          <DialogFooter className="mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <form.Subscribe
-              selector={(state) => [state.canSubmit, state.isSubmitting]}
-            >
-              {([canSubmit, isSubmitting]) => (
-                <Button type="submit" disabled={!canSubmit || isSubmitting}>
-                  {isSubmitting ? "Importing..." : "Import"}
-                </Button>
-              )}
-            </form.Subscribe>
-          </DialogFooter>
+          <div className="flex items-center justify-between gap-2 border-t border-white/5 px-5 py-3">
+            <span className="text-[11px] text-muted-foreground/60">
+              Public or private repos you have access to
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+                className="rounded-lg text-muted-foreground"
+              >
+                Cancel
+              </Button>
+              <form.Subscribe
+                selector={(state) => [state.canSubmit, state.isSubmitting]}
+              >
+                {([canSubmit, isSubmitting]) => (
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={!canSubmit || isSubmitting}
+                    className="rounded-lg bg-logo text-black hover:bg-logo/90 disabled:bg-muted disabled:text-muted-foreground"
+                  >
+                    {isSubmitting ? "Importing..." : "Import"}
+                  </Button>
+                )}
+              </form.Subscribe>
+            </div>
+          </div>
         </form>
-      </DialogContent>
+      </GlowDialogContent>
     </Dialog>
   );
 };
