@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 
 import { inngest } from "@/inngest/client";
+import { convex } from "@/lib/convex-client";
+import { api } from "../../../../../convex/_generated/api";
+import { Id } from "../../../../../convex/_generated/dataModel";
 
 const requestSchema = z.object({
   projectId: z.string(),
@@ -31,6 +34,26 @@ export async function POST(request: Request) {
   const { projectId, repoName, visibility, description } =
     requestSchema.parse(body);
 
+  const internalKey = process.env.ANUBITHIC_STUDIO_CONVEX_INTERNAL_KEY;
+
+  if (!internalKey) {
+    return NextResponse.json(
+      { error: "Server configuration error" },
+      { status: 500 },
+    );
+  }
+
+  //Exporting is a project-level action → owner or admin
+  const role = await convex.query(api.system.getProjectRole, {
+    internalKey,
+    projectId: projectId as Id<"projects">,
+    userId,
+  });
+
+  if (role !== "owner" && role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const client = await clerkClient();
   const tokens = await client.users.getUserOauthAccessToken(userId, "github");
   const githubToken = tokens.data[0]?.token;
@@ -42,15 +65,6 @@ export async function POST(request: Request) {
         code: "GITHUB_MISSING",
       },
       { status: 400 },
-    );
-  }
-
-  const internalKey = process.env.ANUBITHIC_STUDIO_CONVEX_INTERNAL_KEY;
-
-  if (!internalKey) {
-    return NextResponse.json(
-      { error: "Server configuration error" },
-      { status: 500 },
     );
   }
 

@@ -3,6 +3,7 @@
 import { ConversationSidebar } from "@/features/conversations/components/conversation-sidebar";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { Navbar } from "../components/navbar";
+import { PresenceBar } from "../components/presence-bar";
 import { Allotment } from "allotment";
 import { useEffect } from "react";
 import { LoaderIcon } from "lucide-react";
@@ -64,6 +65,9 @@ export const ProjectIdLayout = ({
           {children}
         </Allotment.Pane>
       </Allotment>
+      {/* Who else is here + which file they're on. Also sends our own
+          heartbeat, so it stays mounted for the whole project session. */}
+      <PresenceBar projectId={projectId} />
     </div>
   );
 };

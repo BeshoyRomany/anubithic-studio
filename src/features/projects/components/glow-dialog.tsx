@@ -3,6 +3,7 @@
 import { Poppins } from "next/font/google";
 
 import { cn } from "@/lib/utils";
+import { ProBadge } from "@/components/pro-badge";
 import {
   DialogContent,
   DialogDescription,
@@ -69,6 +70,8 @@ export const GlowDialogContent = ({
 interface GlowDialogHeaderProps {
   title: string;
   description: string;
+  // Shows the golden PRO pill after the title (Pro-plan features)
+  pro?: boolean;
   // Defaults to the Anubithic mark in the logo color.
   icon?: React.ReactNode;
 }
@@ -77,6 +80,7 @@ export const GlowDialogHeader = ({
   title,
   description,
   icon,
+  pro,
 }: GlowDialogHeaderProps) => (
   <DialogHeader className="gap-1 px-5 pt-5 text-left">
     <DialogTitle
@@ -94,6 +98,7 @@ export const GlowDialogHeader = ({
         />
       )}
       {title}
+      {pro && <ProBadge />}
     </DialogTitle>
     <DialogDescription className="text-xs">{description}</DialogDescription>
   </DialogHeader>

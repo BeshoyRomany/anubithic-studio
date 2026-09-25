@@ -1,9 +1,14 @@
 // Projects functions (create)
 
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  QueryCtx,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
-import { verifyAuth } from "./auth";
+import { ProjectRole, verifyAuth, verifyProjectAccess } from "./auth";
 
 export const updateSettings = mutation({
   args: {
@@ -14,17 +19,9 @@ export const updateSettings = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const identity = await verifyAuth(ctx);
-
-    const project = await ctx.db.get("projects", args.projectId);
-
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized to update this project");
-    }
+    //Contributors may change the preview commands too: they only run inside
+    //each viewer's own in-browser WebContainer, never on a server
+    await verifyProjectAccess(ctx, args.projectId);
 
     await ctx.db.patch("projects", args.projectId, {
       settings: args.settings,
@@ -53,11 +50,66 @@ export const create = mutation({
   },
 });
 
-// #region getPartial Projects List
+// #region Projects list (owned + shared with me)
 // Scenario:
-// Fetch a limited, secure subset of projects owned exclusively by the authenticated user for sidebar navigation and quick
-// lists, avoiding heavy full-table scans by utilizing the index.
-//#endregion
+// The home page / command palette list every project the user can open:
+//   1- projects they OWN      → "by_owner" index on projects
+//   2- projects SHARED with them → their ACTIVE "projectContributors" rows
+//      ("by_user_status" index), then each project loaded by id
+// Both lists are index-backed (no table scans), merged, and sorted newest
+// first by _creationTime — the same order the "by_owner" index used to give.
+//
+// Every project carries the caller's "role" (owner / admin / contributor) so
+// the UI can tell shared projects apart and hide actions they can't perform.
+//
+// "limit" (getPartial) caps each source before merging; the merged list is then
+// cut to the limit again, so the result is still the newest N overall.
+// #endregion
+const listAccessibleProjects = async (
+  ctx: QueryCtx,
+  userId: string,
+  limit?: number,
+) => {
+  const ownedQuery = ctx.db
+    .query("projects")
+    .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+    .order("desc");
+
+  const owned =
+    limit === undefined
+      ? await ownedQuery.collect()
+      : await ownedQuery.take(limit);
+
+  //Memberships are few per user, so collecting them all is fine
+  const memberships = await ctx.db
+    .query("projectContributors")
+    .withIndex("by_user_status", (q) =>
+      q.eq("userId", userId).eq("status", "active"),
+    )
+    .collect();
+
+  const shared = (
+    await Promise.all(
+      memberships.map(async (membership) => {
+        const project = await ctx.db.get("projects", membership.projectId);
+        //Their role on this project ("admin" or "contributor")
+        return project
+          ? { ...project, role: membership.role as ProjectRole }
+          : null;
+      }),
+    )
+  )
+    //A project deleted a moment ago may still have a member row being cleaned up
+    .filter((project) => project !== null);
+
+  const projects = [
+    ...owned.map((project) => ({ ...project, role: "owner" as ProjectRole })),
+    ...shared,
+  ].sort((a, b) => b._creationTime - a._creationTime);
+
+  return limit === undefined ? projects : projects.slice(0, limit);
+};
+
 export const getPartial = query({
   args: {
     limit: v.number(),
@@ -65,13 +117,7 @@ export const getPartial = query({
   handler: async (ctx, args) => {
     const identity = await verifyAuth(ctx);
 
-    return await ctx.db
-      .query("projects")
-      // Skip table scan and jump directly to the user's sorted data via the index
-      // return -> the logged in user ownerId data only
-      .withIndex("by_owner", (q) => q.eq("ownerId", identity.subject))
-      .order("desc")
-      .take(args.limit);
+    return await listAccessibleProjects(ctx, identity.subject, args.limit);
   },
 });
 
@@ -80,13 +126,7 @@ export const get = query({
   handler: async (ctx) => {
     const identity = await verifyAuth(ctx);
 
-    return await ctx.db
-      .query("projects")
-      // Skip table scan and jump directly to the user's sorted data via the index
-      // return -> the logged in user ownerId data only
-      .withIndex("by_owner", (q) => q.eq("ownerId", identity.subject))
-      .order("desc")
-      .collect();
+    return await listAccessibleProjects(ctx, identity.subject);
   },
 });
 
@@ -95,18 +135,9 @@ export const getById = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const identity = await verifyAuth(ctx);
-    const project = await ctx.db.get("projects", args.projectId);
+    const { project, role } = await verifyProjectAccess(ctx, args.projectId);
 
-    if (!project) {
-      throw new Error("Project not found!");
-    }
-
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project");
-    }
-
-    return project;
+    return { ...project, role };
   },
 });
 
@@ -116,16 +147,8 @@ export const rename = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await verifyAuth(ctx);
-    const project = await ctx.db.get("projects", args.projectId);
-
-    if (!project) {
-      throw new Error("Project not found!");
-    }
-
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project");
-    }
+    //Renaming is a project-level action → owner or admin
+    await verifyProjectAccess(ctx, args.projectId, { minimum: "admin" });
 
     await ctx.db.patch("projects", args.projectId, {
       name: args.name,
@@ -155,16 +178,10 @@ export const remove = mutation({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const identity = await verifyAuth(ctx);
-    const project = await ctx.db.get("projects", args.projectId);
-
-    if (!project) {
-      throw new Error("Project not found!");
-    }
-
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized access to this project");
-    }
+    //Only the owner can delete — not even an admin can wipe the owner's project
+    const { project } = await verifyProjectAccess(ctx, args.projectId, {
+      minimum: "owner",
+    });
 
     if (project.importStatus === "importing") {
       throw new Error("Cannot delete a project while it is being imported");
@@ -237,8 +254,33 @@ export const deleteProjectData = internalMutation({
       }
     }
 
+    //3- contributors / invites (a project has only a handful, one batch is plenty)
+    const contributors = await ctx.db
+      .query("projectContributors")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .take(DELETE_BATCH_SIZE);
+
+    for (const contributor of contributors) {
+      await ctx.db.delete("projectContributors", contributor._id);
+    }
+
+    //4- presence rows (one per user who had the project open)
+    const presence = await ctx.db
+      .query("presence")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .take(DELETE_BATCH_SIZE);
+
+    for (const row of presence) {
+      await ctx.db.delete("presence", row._id);
+    }
+
     //Anything done this round? -> there may be more, run another batch
-    if (files.length > 0 || conversation) {
+    if (
+      files.length > 0 ||
+      conversation ||
+      contributors.length > 0 ||
+      presence.length > 0
+    ) {
       await ctx.scheduler.runAfter(0, internal.projects.deleteProjectData, {
         projectId: args.projectId,
       });

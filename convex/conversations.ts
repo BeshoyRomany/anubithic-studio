@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { verifyAuth } from "./auth";
+import { verifyAuth, verifyProjectAccess } from "./auth";
 
 //Create conversation
 export const create = mutation({
@@ -9,16 +9,8 @@ export const create = mutation({
     title: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await verifyAuth(ctx);
-    const project = await ctx.db.get("projects", args.projectId);
-
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized to access this project");
-    }
+    //Owner or active contributor of the project
+    await verifyProjectAccess(ctx, args.projectId);
 
     //insert return an Id, and we gonna using it in the front end to select the active conversion
     const conversationId = await ctx.db.insert("conversations", {
@@ -37,7 +29,7 @@ export const getById = query({
     id: v.id("conversations"),
   },
   handler: async (ctx, args) => {
-    const identity = await verifyAuth(ctx);
+    await verifyAuth(ctx);
 
     //get the conversation
     const conversation = await ctx.db.get("conversations", args.id);
@@ -46,16 +38,8 @@ export const getById = query({
       throw new Error("Conversation not found");
     }
 
-    //get the project for the specific conversation
-    const project = await ctx.db.get("projects", conversation.projectId);
-
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized to access this project");
-    }
+    //the caller must own or contribute to the conversation's project
+    await verifyProjectAccess(ctx, conversation.projectId);
 
     return conversation;
   },
@@ -67,17 +51,8 @@ export const getByProject = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const identity = await verifyAuth(ctx);
-
-    const project = await ctx.db.get("projects", args.projectId);
-
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized to access this project");
-    }
+    //Owner or active contributor of the project
+    await verifyProjectAccess(ctx, args.projectId);
 
     //query all the conversation for this specific project Id
     return await ctx.db
@@ -94,7 +69,7 @@ export const getMessages = query({
     conversationId: v.id("conversations"),
   },
   handler: async (ctx, args) => {
-    const identity = await verifyAuth(ctx);
+    await verifyAuth(ctx);
 
     const conversation = await ctx.db.get("conversations", args.conversationId);
 
@@ -102,15 +77,7 @@ export const getMessages = query({
       throw new Error("Conversation not found");
     }
 
-    const project = await ctx.db.get("projects", conversation.projectId);
-
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized to access this project");
-    }
+    await verifyProjectAccess(ctx, conversation.projectId);
 
     //query all the messages for this specific conversation id
     return await ctx.db
@@ -138,7 +105,7 @@ export const remove = mutation({
     id: v.id("conversations"),
   },
   handler: async (ctx, args) => {
-    const identity = await verifyAuth(ctx);
+    await verifyAuth(ctx);
 
     const conversation = await ctx.db.get("conversations", args.id);
 
@@ -146,15 +113,7 @@ export const remove = mutation({
       throw new Error("Conversation not found");
     }
 
-    const project = await ctx.db.get("projects", conversation.projectId);
-
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    if (project.ownerId !== identity.subject) {
-      throw new Error("Unauthorized to access this project");
-    }
+    await verifyProjectAccess(ctx, conversation.projectId);
 
     const messages = await ctx.db
       .query("messages")

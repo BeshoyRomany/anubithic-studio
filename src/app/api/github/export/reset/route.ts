@@ -30,6 +30,17 @@ export async function POST(request: Request) {
     );
   }
 
+  //Exporting is a project-level action → owner or admin
+  const role = await convex.query(api.system.getProjectRole, {
+    internalKey,
+    projectId: projectId as Id<"projects">,
+    userId,
+  });
+
+  if (role !== "owner" && role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // Clear export status
   await convex.mutation(api.system.updateExportStatus, {
     internalKey,

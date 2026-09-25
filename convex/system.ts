@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { getProjectRole as getProjectRoleForUser } from "./auth";
 
 /**
  * ============================================================================
@@ -766,5 +767,34 @@ export const createProjectWithConversation = mutation({
     });
 
     return { projectId, conversationId };
+  },
+});
+
+//#region getProjectRole (team collaboration)
+//Route handlers (messages, GitHub export) run in the server zone: they call
+//Convex with the internal key, so Convex has no Clerk identity to check. They
+//DO know the caller from Clerk's auth(), so they pass that userId here and get
+//back "owner" | "admin" | "contributor" | null — the exact same rule the client-facing
+//API applies through verifyProjectAccess.
+//
+//Returns null (instead of throwing) for a missing project too, so the route can
+//answer a plain 404/403 without leaking whether the project exists.
+//#endregion
+export const getProjectRole = query({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const project = await ctx.db.get("projects", args.projectId);
+
+    if (!project) {
+      return null;
+    }
+
+    return await getProjectRoleForUser(ctx, project, args.userId);
   },
 });

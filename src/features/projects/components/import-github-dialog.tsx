@@ -1,6 +1,7 @@
 import ky, { HTTPError } from "ky";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useOpenBilling } from "@/features/auth/hooks/use-open-billing";
 import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
 import { useClerk } from "@clerk/nextjs";
@@ -32,6 +33,8 @@ export const ImportGithubDialog = ({
 }: ImportGithubDialogProps) => {
   const router = useRouter();
   const { openUserProfile } = useClerk();
+  //Upgrade → straight to the Billing page of the profile modal
+  const openBilling = useOpenBilling();
 
   const form = useForm({
     defaultValues: {
@@ -69,7 +72,7 @@ export const ImportGithubDialog = ({
             toast.error("Upgrade to import repositories", {
               action: {
                 label: "Upgrade",
-                onClick: () => openUserProfile(),
+                onClick: () => openBilling(),
               },
             });
             onOpenChange(false);
@@ -99,6 +102,7 @@ export const ImportGithubDialog = ({
       <GlowDialogContent>
         <GlowDialogHeader
           title="Import from GitHub"
+          pro
           description="Paste a repository URL — a new project will be created with its contents."
           icon={<FaGithub aria-hidden className="size-6 shrink-0 text-logo" />}
         />

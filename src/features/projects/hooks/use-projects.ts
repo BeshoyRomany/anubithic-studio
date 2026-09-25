@@ -25,6 +25,8 @@ export const useCreateProject = () => {
         name: args.name,
         ownerId: userId || "anonymous",
         updatedAt: now,
+        //The creator is always the owner (matches what projects.get returns)
+        role: "owner" as const,
       };
 
       const existingProjects = localStore.getQuery(api.projects.get);
