@@ -46,3 +46,27 @@ export const useCreateConversation = () => {
     },
   );
 };
+
+//Removes the conversation (and its messages, server side).
+//The optimistic update needs the projectId to find the cached list, so the
+//caller passes it alongside the id — it is only used on the client.
+export const useRemoveConversation = (projectId: Id<"projects">) => {
+  return useMutation(api.conversations.remove).withOptimisticUpdate(
+    (localStore, args) => {
+      const existingConversations = localStore.getQuery(
+        api.conversations.getByProject,
+        { projectId },
+      );
+
+      if (existingConversations !== undefined) {
+        localStore.setQuery(
+          api.conversations.getByProject,
+          { projectId },
+          existingConversations.filter(
+            (conversation) => conversation._id !== args.id,
+          ),
+        );
+      }
+    },
+  );
+};

@@ -8,6 +8,8 @@ import { FileExplorer } from "../components/file-explorer";
 import { EditorView } from "@/features/editor/views/editor-view";
 import { PreviewView } from "../components/preview-view";
 import { ExportPopover } from "../components/export-popover";
+import { DeleteProjectDialog } from "../components/delete-project-dialog";
+import { Trash2Icon } from "lucide-react";
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 800;
@@ -37,8 +39,15 @@ interface ProjectIdViewProps {
 }
 export const ProjectIdView = ({ projectId }: ProjectIdViewProps) => {
   const [activeView, setActiveView] = useState<"editor" | "preview">("editor");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   return (
     <div className="h-full flex flex-col">
+      <DeleteProjectDialog
+        projectId={projectId}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        isCurrentProject
+      />
       <nav className="h-8.75 flex items-center bg-sidebar border-b">
         <Tab
           label="Code"
@@ -51,6 +60,14 @@ export const ProjectIdView = ({ projectId }: ProjectIdViewProps) => {
           onClick={() => setActiveView("preview")}
         />
         <div className="flex-1 flex justify-end h-full">
+          <div
+            role="button"
+            onClick={() => setDeleteDialogOpen(true)}
+            className="flex items-center gap-1.5 h-full px-3 cursor-pointer text-muted-foreground border-l hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2Icon className="size-3.5" />
+            <span className="text-sm">Delete</span>
+          </div>
           <ExportPopover projectId={projectId} />
         </div>
       </nav>

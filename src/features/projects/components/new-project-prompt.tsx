@@ -21,11 +21,24 @@ import {
 
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ShortcutKeys } from "./shortcut-keys";
+import { useTypewriterPlaceholder } from "../hooks/use-typewriter-placeholder";
 
 const SUGGESTIONS = [
   "A SaaS landing page with pricing",
   "A kanban board with drag & drop",
   "A markdown notes app",
+];
+
+// Streamed after the fixed "Ask Anubithic/studio to " in the placeholder
+const PLACEHOLDER_PREFIX = "Ask Anubithic/studio to ";
+const PLACEHOLDER_EXAMPLES = [
+  "build a SaaS landing page with pricing",
+  "build an admin dashboard",
+  "create a kanban board with drag & drop",
+  "make a markdown notes app",
+  "design a portfolio site with a blog",
+  "build a weather dashboard with charts",
+  "clone a todo app with dark mode",
 ];
 
 // Holds the prompt while a signed-out user goes through sign-in
@@ -46,6 +59,13 @@ export const NewProjectPrompt = ({
 
   const { isAuthenticated } = useConvexAuth();
   const clerk = useClerk();
+
+  //Paused while there is text -> the placeholder is hidden, no need to animate
+  const placeholder = useTypewriterPlaceholder({
+    prefix: PLACEHOLDER_PREFIX,
+    phrases: PLACEHOLDER_EXAMPLES,
+    paused: input.length > 0,
+  });
 
   const createProject = async (prompt: string) => {
     setInput(prompt); // show the restored prompt while it submits
@@ -106,7 +126,7 @@ export const NewProjectPrompt = ({
         <PromptInputBody>
           <PromptInputTextarea
             id={textareaId}
-            placeholder="Ask Anubithic/studio to build..."
+            placeholder={placeholder}
             onChange={(e) => setInput(e.target.value)}
             value={input}
             disabled={isSubmitting}
