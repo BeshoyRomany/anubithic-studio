@@ -17,10 +17,13 @@ import {
   useCreateFile,
   useCreateFolder,
   useFolderContents,
+  getMutationErrorMessage,
 } from "../../hooks/use-files";
+import { toast } from "sonner";
 import { CreateInput } from "./create-input";
 import { LoadingRow } from "./loading-row";
 import { Tree } from "./tree";
+import { FileTreeDndProvider, RootDropZone } from "./dnd";
 
 interface FileExplorerProps {
   projectId: Id<"projects">;
@@ -55,6 +58,10 @@ export const FileExplorer = ({ projectId }: FileExplorerProps) => {
     //first, cancel any creating.
     setCreating(null);
 
+    // Server rejections (e.g. duplicate name) surface as a toast
+    const showError = (error: unknown) =>
+      toast.error(getMutationErrorMessage(error));
+
     //Creation (folder | file) -> directly onClick
     if (creating === "file") {
       createFile({
@@ -62,107 +69,114 @@ export const FileExplorer = ({ projectId }: FileExplorerProps) => {
         name,
         content: "",
         parentId: undefined,
-      });
+      }).catch(showError);
     } else {
       createFolder({
         projectId,
         name,
         parentId: undefined,
-      });
+      }).catch(showError);
     }
   };
 
   return (
     <div className="h-full bg-sidebar">
-      <ScrollArea className="h-full w-full [&>div>div]:block! [&>div]:h-full!">
-        {/* Project name & creations actions collapse */}
-        <div
-          role="button"
-          onClick={() => toggleExplorerRoot()}
-          className="group/project cursor-pointer w-full text-left flex items-center gap-0.5 h-5.5 bg-accent font-bold"
-        >
-          {/* #Root Chevron + project name */}
-          <ChevronRightIcon
-            className={cn(
-              "size-4 shrink-0 text-muted-foreground",
-              isOpen && "rotate-90",
-            )}
-          />
-          <p className="text-xs uppercase line-clamp-1 truncate">
-            {project?.name ?? "Loading..."}
-          </p>
-
-          {/* #Root actions create, file, folder & collapse*/}
-          <div className="opacity-0 group-hover/project:opacity-100 transition-none duration-0 flex items-center gap-0.5 ml-auto">
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                openExplorerRoot();
-                setCreating("file");
-              }}
-              variant="highlight"
-              size="icon-xs"
+      {/* Drag & drop: rows move between folders (see ./dnd.tsx). The root
+          drop zone spans the whole explorer so dropping on empty space moves
+          the item to the project root. */}
+      <FileTreeDndProvider projectId={projectId}>
+        <RootDropZone className="h-full">
+          <ScrollArea className="h-full w-full [&>div>div]:block! [&>div]:h-full!">
+            {/* Project name & creations actions collapse */}
+            <div
+              role="button"
+              onClick={() => toggleExplorerRoot()}
+              className="group/project cursor-pointer w-full text-left flex items-center gap-0.5 h-5.5 bg-accent font-bold"
             >
-              <FilePlusCorner className="size-3.5" />
-            </Button>
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                openExplorerRoot();
-                setCreating("folder");
-              }}
-              variant="highlight"
-              size="icon-xs"
-            >
-              <FolderPlusIcon className="size-3.5" />
-            </Button>
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                // Expansion now lives in the shared store, so clearing it is
-                // what actually snaps every folder shut...
-                collapseAllFolders();
-                // ...while bumping the key still remounts the trees to reset
-                // their local inline states (rename/create inputs)
-                setCollapseKey((prev) => prev + 1);
-              }}
-              variant="highlight"
-              size="icon-xs"
-            >
-              <CopyMinusIcon className="size-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* #Root if file explorer open */}
-        {isOpen && (
-          <>
-            {rootFiles === undefined && <LoadingRow level={0} />}
-            {creating && (
-              <CreateInput
-                type={creating}
-                level={0}
-                onSubmit={handleCreate}
-                onCancel={() => setCreating(null)}
+              {/* #Root Chevron + project name */}
+              <ChevronRightIcon
+                className={cn(
+                  "size-4 shrink-0 text-muted-foreground",
+                  isOpen && "rotate-90",
+                )}
               />
+              <p className="text-xs uppercase line-clamp-1 truncate">
+                {project?.name ?? "Loading..."}
+              </p>
+
+              {/* #Root actions create, file, folder & collapse*/}
+              <div className="opacity-0 group-hover/project:opacity-100 transition-none duration-0 flex items-center gap-0.5 ml-auto">
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    openExplorerRoot();
+                    setCreating("file");
+                  }}
+                  variant="highlight"
+                  size="icon-xs"
+                >
+                  <FilePlusCorner className="size-3.5" />
+                </Button>
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    openExplorerRoot();
+                    setCreating("folder");
+                  }}
+                  variant="highlight"
+                  size="icon-xs"
+                >
+                  <FolderPlusIcon className="size-3.5" />
+                </Button>
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    // Expansion now lives in the shared store, so clearing it is
+                    // what actually snaps every folder shut...
+                    collapseAllFolders();
+                    // ...while bumping the key still remounts the trees to reset
+                    // their local inline states (rename/create inputs)
+                    setCollapseKey((prev) => prev + 1);
+                  }}
+                  variant="highlight"
+                  size="icon-xs"
+                >
+                  <CopyMinusIcon className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* #Root if file explorer open */}
+            {isOpen && (
+              <>
+                {rootFiles === undefined && <LoadingRow level={0} />}
+                {creating && (
+                  <CreateInput
+                    type={creating}
+                    level={0}
+                    onSubmit={handleCreate}
+                    onCancel={() => setCreating(null)}
+                  />
+                )}
+                {rootFiles?.map((item) => (
+                  // concatenating _id + Incrementing collapseKey forces React to unmount and remount (each) component tree,
+                  // effectively resetting all internal states (like open folders and active inputs)
+                  // back to their initial closed state with a single click.
+                  <Tree
+                    key={`${item._id}-${collapseKey}`}
+                    item={item}
+                    level={0} //#root level
+                    projectId={projectId}
+                  />
+                ))}
+              </>
             )}
-            {rootFiles?.map((item) => (
-              // concatenating _id + Incrementing collapseKey forces React to unmount and remount (each) component tree,
-              // effectively resetting all internal states (like open folders and active inputs)
-              // back to their initial closed state with a single click.
-              <Tree
-                key={`${item._id}-${collapseKey}`}
-                item={item}
-                level={0} //#root level
-                projectId={projectId}
-              />
-            ))}
-          </>
-        )}
-      </ScrollArea>
+          </ScrollArea>
+        </RootDropZone>
+      </FileTreeDndProvider>
     </div>
   );
 };
