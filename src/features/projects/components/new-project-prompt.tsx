@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ky from "ky";
+import { useClerk } from "@clerk/nextjs";
+import { useConvexAuth } from "convex/react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -26,6 +28,9 @@ const SUGGESTIONS = [
   "A markdown notes app",
 ];
 
+// Holds the prompt while a signed-out user goes through sign-in
+const PENDING_PROMPT_KEY = "anubithic:pending-prompt";
+
 interface NewProjectPromptProps {
   onCreated?: () => void;
   textareaId?: string;
@@ -39,15 +44,17 @@ export const NewProjectPrompt = ({
   const [input, setInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (message: PromptInputMessage) => {
-    if (!message.text) return;
+  const { isAuthenticated } = useConvexAuth();
+  const clerk = useClerk();
 
+  const createProject = async (prompt: string) => {
+    setInput(prompt); // show the restored prompt while it submits
     setIsSubmitting(true);
 
     try {
       const { projectId } = await ky
         .post("/api/projects/create-with-prompt", {
-          json: { prompt: message.text.trim() },
+          json: { prompt: prompt.trim() },
         })
         .json<{ projectId: Id<"projects"> }>();
 
@@ -61,6 +68,31 @@ export const NewProjectPrompt = ({
       setIsSubmitting(false);
     }
   };
+
+  const handleSubmit = (message: PromptInputMessage) => {
+    if (!message.text) return;
+
+    // Signed out: save the prompt (survives OAuth redirects), then sign in
+    if (!isAuthenticated) {
+      sessionStorage.setItem(PENDING_PROMPT_KEY, message.text);
+      clerk.openSignIn({ forceRedirectUrl: "/" });
+      return;
+    }
+
+    createProject(message.text);
+  };
+
+  // Back from sign-in: restore the saved prompt and submit it
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const pending = sessionStorage.getItem(PENDING_PROMPT_KEY);
+    if (!pending) return;
+    // Remove first so it runs only once (StrictMode runs effects twice)
+    sessionStorage.removeItem(PENDING_PROMPT_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from sessionStorage
+    createProject(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   return (
     <>
