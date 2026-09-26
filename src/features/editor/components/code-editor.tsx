@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import { EditorView, keymap } from "@codemirror/view";
+import { Compartment } from "@codemirror/state";
 import { indentWithTab } from "@codemirror/commands";
-import { oneDark } from "@codemirror/theme-one-dark";
-import { customTheme } from "../extensions/theme-extension";
+import { useTheme } from "next-themes";
+import { customTheme, editorTheme } from "../extensions/theme-extension";
 import { getLanguageExtension } from "../extensions/language-extension";
 import { minimap } from "../extensions/minimap-extension";
 import { indentationMarkers } from "@replit/codemirror-indentation-markers";
@@ -29,6 +30,12 @@ export const CodeEditor = ({
   // Ref flag to distinguish between user typing and remote agent updates
   const isLocalEditRef = useRef(false);
 
+  //Light/dark editor theme, swapped in place without recreating the editor
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== "light";
+  const isDarkRef = useRef(isDark);
+  const themeCompartmentRef = useRef(new Compartment());
+
   const languageExtension = useMemo(
     () => getLanguageExtension(fileName),
     [fileName],
@@ -42,7 +49,7 @@ export const CodeEditor = ({
       parent: editorRef.current,
       extensions: [
         customSetup,
-        oneDark,
+        themeCompartmentRef.current.of(editorTheme(isDarkRef.current)),
         customTheme,
         languageExtension,
         selectionTooltip(),
@@ -69,6 +76,13 @@ export const CodeEditor = ({
       viewsRef.current = null;
     };
   }, [languageExtension]);
+
+  useEffect(() => {
+    isDarkRef.current = isDark;
+    viewsRef.current?.dispatch({
+      effects: themeCompartmentRef.current.reconfigure(editorTheme(isDark)),
+    });
+  }, [isDark]);
 
   useEffect(() => {
     const view = viewsRef.current;

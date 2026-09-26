@@ -148,14 +148,14 @@ export const NewProjectPrompt = ({
         </PromptInputFooter>
       </PromptInput>
 
-      <div className="flex flex-wrap gap-2 border-t border-white/5 px-5 py-3">
+      <div className="flex flex-wrap gap-2 border-t border-foreground/5 px-5 py-3">
         {SUGGESTIONS.map((suggestion) => (
           <button
             key={suggestion}
             type="button"
             onClick={() => setInput(suggestion)}
             disabled={isSubmitting}
-            className="rounded-full border border-white/10 bg-white/3 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-logo/50 hover:text-logo"
+            className="rounded-full border border-foreground/10 bg-foreground/3 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-logo/50 hover:text-logo"
           >
             {suggestion}
           </button>

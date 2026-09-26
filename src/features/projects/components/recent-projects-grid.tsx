@@ -58,12 +58,12 @@ const ProjectCard = ({
       <Link
         href={`/projects/${data._id}`}
         className={cn(
-          "flex min-w-0 items-center gap-3 rounded-xl border bg-white/3 py-2.5 pl-3 pr-3 backdrop-blur-sm transition-[color,background-color,border-color,padding]",
+          "flex min-w-0 items-center gap-3 rounded-xl border bg-white/55 dark:bg-foreground/3 py-2.5 pl-3 pr-3 backdrop-blur-sm transition-[color,background-color,border-color,padding]",
           // Make room for the delete button only while it is visible (see below)
           isOwner &&
             "group-hover:pr-10 group-focus-within:pr-10 [@media(hover:none)]:pr-10",
           "group-hover:border-logo/40 group-hover:bg-logo/5",
-          isLatest ? "border-logo/30" : "border-white/10",
+          isLatest ? "border-logo/30" : "border-foreground/10",
         )}
       >
         {getProjectIcon(data)}

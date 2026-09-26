@@ -35,7 +35,7 @@ export const ProBadge = ({ className }: { className?: string }) => {
         className,
       )}
     >
-      <span className="bg-linear-to-r from-logo via-amber-200 to-logo bg-clip-text text-transparent">
+      <span className="bg-linear-to-r from-logo via-amber-500 to-logo dark:via-amber-200 bg-clip-text text-transparent">
         PRO
       </span>
     </span>

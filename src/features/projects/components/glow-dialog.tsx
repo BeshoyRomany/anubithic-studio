@@ -20,7 +20,7 @@ const font = Poppins({
 // Shared shell for the home screen dialogs (New project, Import from GitHub)
 // so they match the animated home backdrop (projects-background.tsx): a dark
 // glass card wrapped in a 1px border that is a slowly rotating gold→white
-// conic gradient, with a soft gold glow behind it. The shadcn DialogContent is
+// conic gradient (gold→bronze in light theme), with a soft gold glow behind it. The shadcn DialogContent is
 // made transparent/borderless so only our card shows.
 // #endregion
 
@@ -36,11 +36,12 @@ export const GlowCard = ({ children, className }: GlowCardProps) => (
     {/* Glow */}
     <div className="pointer-events-none absolute -inset-6 rounded-3xl bg-logo/10 blur-2xl" />
 
-    <div className="relative overflow-hidden rounded-2xl p-px">
+    {/* Soft black shadow (outside overflow-hidden, or it would be clipped) */}
+    <div className="relative overflow-hidden rounded-2xl p-px shadow-[0_10px_30px_-10px_rgb(0_0_0/0.25)] dark:shadow-[0_12px_36px_-8px_rgb(0_0_0/0.6)]">
       {/* Rotating gradient border */}
-      <div className="absolute inset-[-150%] animate-[spin_8s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,var(--color-logo)_70deg,transparent_140deg,transparent_180deg,var(--color-white)_250deg,transparent_320deg)] motion-reduce:animate-none" />
+      <div className="absolute inset-[-150%] animate-[spin_8s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,var(--color-logo)_70deg,transparent_140deg,transparent_180deg,var(--glow-sheen)_250deg,transparent_320deg)] motion-reduce:animate-none" />
 
-      <div className="relative rounded-[15px] bg-[oklch(0.14_0.012_264)]/95 backdrop-blur-xl">
+      <div className="relative rounded-[15px] bg-[oklch(0.99_0.006_85)]/90 backdrop-blur-xl dark:bg-[oklch(0.14_0.012_264)]/95">
         {children}
       </div>
     </div>

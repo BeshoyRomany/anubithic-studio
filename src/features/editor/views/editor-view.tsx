@@ -71,6 +71,8 @@ export const EditorView = ({ projectId }: EditorViewProps) => {
               alt="Anubithic/Studio"
               width={80}
               height={80}
+              //Baked-in dark grey: already faint on dark, faded to match on light
+              className="opacity-15 dark:opacity-100"
             />
             {/* <pre className="text-2xl flex items-center font-bold text-[#3c4047]">
               <span className="text-3xl">/</span>Studio

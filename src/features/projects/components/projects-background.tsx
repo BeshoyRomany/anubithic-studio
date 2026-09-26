@@ -1,8 +1,35 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
 
 const GOLD = "212, 170, 90";
+
+//Canvas colors per theme; "day" is the light theme's desert afternoon
+const PALETTES = {
+  night: {
+    energy: GOLD,
+    pulse: "255, 225, 160",
+    peak: "255, 235, 180",
+    orionLines: "rgba(255, 255, 255, 0.07)",
+    horizonGlow: 0.07,
+    litTop: "rgb(74, 60, 46)",
+    litBottom: "rgb(36, 30, 30)",
+    shadow: "rgb(20, 18, 24)",
+    ridge: GOLD,
+  },
+  day: {
+    energy: "184, 128, 40",
+    pulse: "196, 120, 20",
+    peak: "235, 160, 50",
+    orionLines: "rgba(120, 90, 50, 0.18)",
+    horizonGlow: 0.22,
+    litTop: "rgb(232, 196, 138)",
+    litBottom: "rgb(204, 158, 100)",
+    shadow: "rgb(160, 116, 76)",
+    ridge: "255, 244, 214",
+  },
+};
 
 // Half of the home content column's width (`max-w-2xl` = 672px in
 // projects-view.tsx). Keep in sync so the pyramids stay beside the content.
@@ -60,6 +87,15 @@ type ShootingStar = {
 
 const NightSky = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { resolvedTheme } = useTheme();
+  const isDayRef = useRef(false);
+  //Redraws immediately so a theme switch never shows a stale frame
+  const redrawRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    isDayRef.current = resolvedTheme === "light";
+    redrawRef.current();
+  }, [resolvedTheme]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -74,6 +110,7 @@ const NightSky = () => {
     let height = 0;
     let horizon = 0;
     let groupX = 0;
+    let sun = { x: 0, y: 0, r: 0 };
     let scale = 0;
     let orionY = 0;
     let stars: BgStar[] = [];
@@ -121,6 +158,12 @@ const NightSky = () => {
           ? width * 0.5
           : Math.min(width * 0.78, width - b * 1.08 - 16);
       scale = Math.min(width, height) * 0.02;
+      //Low afternoon sun, left of Khufu (day only)
+      sun = {
+        x: Math.max(width * 0.15, groupX - b * 1.35),
+        y: horizon - b * 0.62,
+        r: b * 0.16,
+      };
       orionY = height * 0.34;
 
       const count = Math.min(500, Math.floor((width * horizon) / 3000));
@@ -165,7 +208,7 @@ const NightSky = () => {
     };
     // #endregion
 
-    const drawPyramid = (p: Pyramid) => {
+    const drawPyramid = (p: Pyramid, pal: (typeof PALETTES)["night"]) => {
       const apexX = p.cx;
       const apexY = p.base - p.height;
       const left = p.cx - p.width / 2;
@@ -175,8 +218,8 @@ const NightSky = () => {
 
       // Lit face (left), catching the gold horizon light.
       const lit = ctx.createLinearGradient(apexX, apexY, apexX, p.base);
-      lit.addColorStop(0, "rgb(74, 60, 46)");
-      lit.addColorStop(1, "rgb(36, 30, 30)");
+      lit.addColorStop(0, pal.litTop);
+      lit.addColorStop(1, pal.litBottom);
       ctx.fillStyle = lit;
       ctx.beginPath();
       ctx.moveTo(apexX, apexY);
@@ -186,7 +229,7 @@ const NightSky = () => {
       ctx.fill();
 
       // Shadow face (right).
-      ctx.fillStyle = "rgb(20, 18, 24)";
+      ctx.fillStyle = pal.shadow;
       ctx.beginPath();
       ctx.moveTo(apexX, apexY);
       ctx.lineTo(edgeX, p.base);
@@ -196,8 +239,8 @@ const NightSky = () => {
 
       // Moonlit ridges fading towards the ground.
       const ridge = ctx.createLinearGradient(apexX, apexY, apexX, p.base);
-      ridge.addColorStop(0, `rgba(${GOLD}, 0.7)`);
-      ridge.addColorStop(1, `rgba(${GOLD}, 0)`);
+      ridge.addColorStop(0, `rgba(${pal.ridge}, 0.7)`);
+      ridge.addColorStop(1, `rgba(${pal.ridge}, 0)`);
       ctx.strokeStyle = ridge;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -251,12 +294,64 @@ const NightSky = () => {
     };
     // #endregion
 
+    // Sun disc with a wide warm halo.
+    const drawSun = () => {
+      const halo = ctx.createRadialGradient(
+        sun.x,
+        sun.y,
+        sun.r * 0.5,
+        sun.x,
+        sun.y,
+        sun.r * 7,
+      );
+      halo.addColorStop(0, "rgba(255, 214, 140, 0.55)");
+      halo.addColorStop(0.35, "rgba(255, 190, 110, 0.18)");
+      halo.addColorStop(1, "rgba(255, 190, 110, 0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(sun.x, sun.y, sun.r * 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      const disc = ctx.createRadialGradient(
+        sun.x,
+        sun.y,
+        0,
+        sun.x,
+        sun.y,
+        sun.r,
+      );
+      disc.addColorStop(0, "rgba(255, 250, 235, 1)");
+      disc.addColorStop(1, "rgba(255, 220, 150, 0.95)");
+      ctx.fillStyle = disc;
+      ctx.beginPath();
+      ctx.arc(sun.x, sun.y, sun.r, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
     const draw = (time: number) => {
       const t = time / 1000;
+      const isDay = isDayRef.current;
+      const pal = isDay ? PALETTES.day : PALETTES.night;
       ctx.clearRect(0, 0, width, height);
 
+      if (isDay) drawSun();
+
+      // By day, a quarter of the stars become sand motes drifting right.
+      if (isDay) {
+        for (const [i, s] of stars.entries()) {
+          if (i % 4) continue;
+          const x = reducedMotion ? s.x : (s.x + t * 8 * s.speed) % width;
+          const y =
+            s.y + (reducedMotion ? 0 : 3 * Math.sin(t * s.speed + s.phase));
+          ctx.fillStyle = `rgba(170, 125, 60, ${s.alpha * 0.45})`;
+          ctx.beginPath();
+          ctx.arc(x, y, s.r * 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
       // Starfield — each star twinkles on its own slow sine wave.
-      for (const s of stars) {
+      for (const s of isDay ? [] : stars) {
         const twinkle = reducedMotion
           ? 1
           : 0.6 + 0.4 * Math.sin(t * s.speed + s.phase);
@@ -274,7 +369,7 @@ const NightSky = () => {
       }
 
       // Orion's figure lines.
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
+      ctx.strokeStyle = pal.orionLines;
       ctx.lineWidth = 0.7;
       for (const [a, b] of ORION_LINES) {
         const pa = orionPoint(ORION[a]);
@@ -290,25 +385,27 @@ const NightSky = () => {
       for (const [index, star] of Object.values(ORION).entries()) {
         const { x, y } = orionPoint(star);
         const isBelt = star.belt !== undefined;
+        // By day Orion reads as a star chart inked in gold.
+        const color = isDay ? pal.energy : star.color;
         const pulse =
           isBelt && !reducedMotion
             ? 1 + 0.25 * Math.sin(t * 0.8 + (star.belt ?? 0))
             : 1;
         const haloR = star.r * 7 * pulse;
         const halo = ctx.createRadialGradient(x, y, 0, x, y, haloR);
-        halo.addColorStop(0, `rgba(${star.color}, ${isBelt ? 0.35 : 0.2})`);
-        halo.addColorStop(1, `rgba(${star.color}, 0)`);
+        halo.addColorStop(0, `rgba(${color}, ${isBelt ? 0.35 : 0.2})`);
+        halo.addColorStop(1, `rgba(${color}, 0)`);
         ctx.fillStyle = halo;
         ctx.beginPath();
         ctx.arc(x, y, haloR, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = `rgba(${star.color}, 0.95)`;
+        ctx.fillStyle = `rgba(${color}, 0.95)`;
         ctx.beginPath();
         ctx.arc(x, y, star.r, 0, Math.PI * 2);
         ctx.fill();
 
-        if (!isBelt && !reducedMotion) {
+        if (!isBelt && !isDay && !reducedMotion) {
           const flash = Math.max(0, Math.sin(t * 0.9 + index * 2.1)) ** 16;
           drawSparkle(x, y, star.r * 12, star.color, flash);
         }
@@ -317,7 +414,7 @@ const NightSky = () => {
       // #region Shooting stars
       // Spawned in the upper sky every 3–7s (at most two alive), travelling
       // down-left with a bright head and a long fading tail.
-      if (!reducedMotion) {
+      if (!reducedMotion && !isDay) {
         if (shooting.length < 2 && t > nextShootingAt) {
           shooting.push({
             x: width * (0.2 + Math.random() * 0.8),
@@ -363,12 +460,12 @@ const NightSky = () => {
       const glowTop = horizon - height * 0.3;
       const glow = ctx.createLinearGradient(0, glowTop, 0, horizon);
       glow.addColorStop(0, `rgba(${GOLD}, 0)`);
-      glow.addColorStop(1, `rgba(${GOLD}, 0.07)`);
+      glow.addColorStop(1, `rgba(${GOLD}, ${pal.horizonGlow})`);
       ctx.fillStyle = glow;
       ctx.fillRect(0, glowTop, width, height * 0.3);
 
       // Pyramids, back to front (Menkaure is the nearest).
-      for (const p of pyramids) drawPyramid(p);
+      for (const p of pyramids) drawPyramid(p, pal);
 
       // #region Energy streams
       // Each belt star feeds its pyramid through a straight channel. Every 4.5s a pulse
@@ -395,7 +492,7 @@ const NightSky = () => {
           : Math.exp(-(phase - TRAVEL) * 14) * (reducedMotion ? 0.3 : 1);
 
         // The channel itself: barely there, lighting up on arrival.
-        ctx.strokeStyle = `rgba(${GOLD}, ${0.06 + 0.35 * flash})`;
+        ctx.strokeStyle = `rgba(${pal.energy}, ${(isDay ? 0.15 : 0.06) + 0.35 * flash})`;
         ctx.lineWidth = 1 + 1.5 * flash;
         ctx.lineCap = "round";
         ctx.beginPath();
@@ -413,7 +510,7 @@ const NightSky = () => {
             if (u1 <= 0) continue;
             const a = at(Math.max(0, u0));
             const b = at(u1);
-            ctx.strokeStyle = `rgba(255, 225, 160, ${((i + 1) / STEPS) ** 2 * 0.9})`;
+            ctx.strokeStyle = `rgba(${pal.pulse}, ${((i + 1) / STEPS) ** 2 * 0.9})`;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
@@ -429,8 +526,8 @@ const NightSky = () => {
             head.y,
             7,
           );
-          headGlow.addColorStop(0, "rgba(255, 240, 200, 0.95)");
-          headGlow.addColorStop(1, `rgba(${GOLD}, 0)`);
+          headGlow.addColorStop(0, `rgba(${pal.peak}, 0.95)`);
+          headGlow.addColorStop(1, `rgba(${pal.energy}, 0)`);
           ctx.fillStyle = headGlow;
           ctx.beginPath();
           ctx.arc(head.x, head.y, 7, 0, Math.PI * 2);
@@ -440,8 +537,8 @@ const NightSky = () => {
         // The peak: a dim ember that flares when the energy lands.
         const glowR = 6 + 26 * flash;
         const peak = ctx.createRadialGradient(to.x, to.y, 0, to.x, to.y, glowR);
-        peak.addColorStop(0, `rgba(255, 235, 180, ${0.35 + 0.65 * flash})`);
-        peak.addColorStop(1, `rgba(${GOLD}, 0)`);
+        peak.addColorStop(0, `rgba(${pal.peak}, ${0.35 + 0.65 * flash})`);
+        peak.addColorStop(1, `rgba(${pal.energy}, 0)`);
         ctx.fillStyle = peak;
         ctx.beginPath();
         ctx.arc(to.x, to.y, glowR, 0, Math.PI * 2);
@@ -465,6 +562,11 @@ const NightSky = () => {
       if (reducedMotion) draw(0);
     };
 
+    redrawRef.current = () => {
+      cancelAnimationFrame(frame);
+      draw(performance.now());
+    };
+
     resize();
     frame = requestAnimationFrame(draw);
     window.addEventListener("resize", onResize);
@@ -484,15 +586,15 @@ export const ProjectsBackground = () => {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-0 overflow-hidden bg-[linear-gradient(to_bottom,oklch(0.09_0.015_264),oklch(0.14_0.02_264)_70%,oklch(0.16_0.02_60))]"
+      className="pointer-events-none fixed inset-0 overflow-hidden bg-[linear-gradient(to_bottom,oklch(0.9_0.035_235),oklch(0.95_0.025_85)_65%,oklch(0.88_0.06_70))] dark:bg-[linear-gradient(to_bottom,oklch(0.09_0.015_264),oklch(0.14_0.02_264)_70%,oklch(0.16_0.02_60))]"
     >
-      {/* Milky Way haze */}
-      <div className="absolute left-1/2 top-1/2 h-[30vmax] w-[160vmax] -translate-x-1/2 -translate-y-1/2 -rotate-35 rounded-[100%] bg-white/3 blur-[80px]" />
+      {/* Milky Way haze (a warm heat haze by day) */}
+      <div className="absolute left-1/2 top-1/2 h-[30vmax] w-[160vmax] -translate-x-1/2 -translate-y-1/2 -rotate-35 rounded-[100%] bg-amber-100/40 blur-[80px] dark:bg-white/3" />
 
       <NightSky />
 
       {/* Vignette */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,oklch(0.06_0.01_264/0.8)_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,oklch(0.8_0.06_70/0.3)_100%)] dark:bg-[radial-gradient(ellipse_at_center,transparent_45%,oklch(0.06_0.01_264/0.8)_100%)]" />
     </div>
   );
 };

@@ -134,14 +134,14 @@ export const ImportGithubDialog = ({
                     aria-invalid={isInvalid}
                     placeholder="https://github.com/owner/repo"
                     autoComplete="off"
-                    className="h-10 rounded-lg border-white/10 bg-white/3! placeholder:text-muted-foreground/60 focus-visible:border-logo/60 focus-visible:ring-logo/20"
+                    className="h-10 rounded-lg border-foreground/10 bg-foreground/3! placeholder:text-muted-foreground/60 focus-visible:border-logo/60 focus-visible:ring-logo/20"
                   />
                   {isInvalid && <FieldError errors={field.state.meta.errors} />}
                 </Field>
               );
             }}
           </form.Field>
-          <div className="flex items-center justify-between gap-2 border-t border-white/5 px-5 py-3">
+          <div className="flex items-center justify-between gap-2 border-t border-foreground/5 px-5 py-3">
             <span className="text-[11px] text-muted-foreground/60">
               Public or private repos you have access to
             </span>

@@ -15,6 +15,7 @@ import { Poppins } from "next/font/google";
 import { UserButton } from "@clerk/nextjs";
 import { useProject, useRenameProject } from "../hooks/use-projects";
 import { TeamPopover } from "./team-popover";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import React, { useState } from "react";
 
 import {
@@ -141,6 +142,7 @@ export const Navbar = ({ projectId }: NavbarProps) => {
         )}
       </div>
       <div className="flex items-center gap-2">
+        <ThemeSwitcher size="sm" />
         <TeamPopover projectId={projectId} />
         <UserButton />
       </div>

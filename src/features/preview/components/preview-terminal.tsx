@@ -1,9 +1,36 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { Terminal } from "@xterm/xterm";
+import { Terminal, type ITheme } from "@xterm/xterm";
+import { useTheme } from "next-themes";
 import { FitAddon } from "@xterm/addon-fit";
 
 import "@xterm/xterm/css/xterm.css";
+
+const DARK_THEME: ITheme = { background: "#1f2228" };
+
+//One Light ANSI colors, readable on a light background
+const LIGHT_THEME: ITheme = {
+  background: "#f5f2ea",
+  foreground: "#383a42",
+  cursor: "#526eff",
+  selectionBackground: "#d7dbe8",
+  black: "#383a42",
+  red: "#e45649",
+  green: "#50a14f",
+  yellow: "#c18401",
+  blue: "#4078f2",
+  magenta: "#a626a4",
+  cyan: "#0184bc",
+  white: "#a0a1a7",
+  brightBlack: "#696c77",
+  brightRed: "#e45649",
+  brightGreen: "#50a14f",
+  brightYellow: "#c18401",
+  brightBlue: "#4078f2",
+  brightMagenta: "#a626a4",
+  brightCyan: "#0184bc",
+  brightWhite: "#383a42",
+};
 
 interface PreviewTerminalProps {
   output: string;
@@ -14,6 +41,10 @@ export const PreviewTerminal = ({ output }: PreviewTerminalProps) => {
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const lastLengthRef = useRef(0);
+
+  const { resolvedTheme } = useTheme();
+  const terminalTheme = resolvedTheme === "light" ? LIGHT_THEME : DARK_THEME;
+  const terminalThemeRef = useRef(terminalTheme);
 
   // Initialize terminal
   useEffect(() => {
@@ -26,7 +57,7 @@ export const PreviewTerminal = ({ output }: PreviewTerminalProps) => {
       disableStdin: true,
       fontSize: 12,
       fontFamily: "monospace",
-      theme: { background: "#1f2228" },
+      theme: terminalThemeRef.current,
     });
 
     // Initialize and fit the terminal instance to the container's current dimensions
@@ -67,6 +98,12 @@ export const PreviewTerminal = ({ output }: PreviewTerminalProps) => {
     // "output" does not need to be a dependency since it is not intended
     // to update anything, just used on mount
   }, []);
+
+  // Follow the app theme
+  useEffect(() => {
+    terminalThemeRef.current = terminalTheme;
+    if (terminalRef.current) terminalRef.current.options.theme = terminalTheme;
+  }, [terminalTheme]);
 
   // Write output
   useEffect(() => {
