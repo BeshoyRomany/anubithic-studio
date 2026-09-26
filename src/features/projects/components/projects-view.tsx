@@ -16,6 +16,7 @@ import { NewProjectPrompt } from "./new-project-prompt";
 import { RecentProjectsGrid } from "./recent-projects-grid";
 import { PendingInvites } from "./pending-invites";
 import { ShortcutKeys } from "./shortcut-keys";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 const font = Poppins({
   subsets: ["latin"],
@@ -25,7 +26,7 @@ const font = Poppins({
 const PROMPT_ID = "home-prompt";
 
 const AUTH_BUTTON_CLASS =
-  "flex items-center gap-2 rounded-full border border-white/10 bg-white/3 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-logo/50 hover:text-foreground";
+  "flex items-center gap-2 rounded-full border border-foreground/10 bg-white/55 dark:bg-foreground/3 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-logo/50 hover:text-foreground";
 
 export const ProjectsView = () => {
   const [commandDialogOpen, setCommandDialogOpen] = useState<boolean>(false);
@@ -67,8 +68,9 @@ export const ProjectsView = () => {
       </Authenticated>
       <ProjectsBackground />
 
-      {/* Top-right auth action: sign in when signed out, log out when signed in */}
-      <div className="fixed top-4 right-4 z-20">
+      {/* Top-right: theme switcher + auth action (sign in / log out) */}
+      <div className="fixed top-4 right-4 z-20 flex items-center gap-2">
+        <ThemeSwitcher />
         <Unauthenticated>
           <SignInButton mode="modal" forceRedirectUrl="/">
             <button className={AUTH_BUTTON_CLASS}>
@@ -111,7 +113,7 @@ export const ProjectsView = () => {
               )}
             >
               What will you{" "}
-              <span className="bg-linear-to-r from-logo via-amber-200 to-logo bg-clip-text text-transparent">
+              <span className="bg-linear-to-r from-logo via-amber-500 to-logo dark:via-amber-200 bg-clip-text text-transparent">
                 build
               </span>{" "}
               today?
@@ -132,7 +134,7 @@ export const ProjectsView = () => {
             <div className="flex flex-wrap items-center justify-center gap-2">
               <button
                 onClick={() => setImportDialogOpen(true)}
-                className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/3 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-logo/50 hover:text-foreground"
+                className="group flex items-center gap-2 rounded-full border border-foreground/10 bg-white/55 dark:bg-foreground/3 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-logo/50 hover:text-foreground"
               >
                 <FaGithub className="size-4" />
                 Import from GitHub
@@ -141,7 +143,7 @@ export const ProjectsView = () => {
               </button>
               <button
                 onClick={() => setCommandDialogOpen(true)}
-                className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/3 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-logo/50 hover:text-foreground"
+                className="group flex items-center gap-2 rounded-full border border-foreground/10 bg-white/55 dark:bg-foreground/3 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-logo/50 hover:text-foreground"
               >
                 <FolderOpenIcon className="size-4" />
                 All projects

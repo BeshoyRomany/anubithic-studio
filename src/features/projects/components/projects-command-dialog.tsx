@@ -57,7 +57,7 @@ export const ProjectsCommandDialog = ({
           title="Your projects"
           description="Search and jump back into any of your projects."
         />
-        <Command className="mt-3 bg-transparent **:data-[slot=command-input-wrapper]:h-12 **:data-[slot=command-input-wrapper]:border-white/5 **:data-[slot=command-input-wrapper]:px-5 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground/70 [&_[cmdk-group]]:px-3 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:rounded-lg [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item][data-selected=true]]:bg-logo/10 [&_[cmdk-item][data-selected=true]]:text-logo [&_[cmdk-item][data-selected=true]_svg]:text-logo">
+        <Command className="mt-3 bg-transparent **:data-[slot=command-input-wrapper]:h-12 **:data-[slot=command-input-wrapper]:border-foreground/5 **:data-[slot=command-input-wrapper]:px-5 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground/70 [&_[cmdk-group]]:px-3 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:rounded-lg [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item][data-selected=true]]:bg-logo/10 [&_[cmdk-item][data-selected=true]]:text-logo [&_[cmdk-item][data-selected=true]_svg]:text-logo">
           <CommandInput placeholder="Search projects..." />
           <CommandList className="pb-2">
             <CommandEmpty>No projects found.</CommandEmpty>

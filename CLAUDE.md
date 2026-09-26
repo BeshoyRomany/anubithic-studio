@@ -78,6 +78,7 @@ Route handlers get the user's GitHub token from Clerk (`clerkClient` OAuth acces
 - Route handler bodies are validated with Zod before use.
 - Editor state goes through the Zustand store [use-editor-store.ts](src/features/editor/store/use-editor-store.ts): per-project tabs *and* file-tree expansion state. The VS Code-style auto-reveal of the active file reacts to `activeTabId` in [use-reveal-active-file.ts](src/features/projects/hooks/use-reveal-active-file.ts) — don't wire reveal calls into individual components.
 - CodeMirror language/theme/minimap setup lives in `src/features/editor/extensions/` and `components/custom-setup.ts`.
+- Light/dark/system theming via `next-themes` (class on `<html>`, switcher in `src/components/theme-switcher.tsx`). Use theme tokens (`bg-background`, `border-foreground/10`), not `white/…` tints; non-CSS surfaces follow `resolvedTheme` (CodeMirror via a Compartment in `code-editor.tsx`, xterm in `preview-terminal.tsx`, the home canvas).
 - Comments often use `#region … #endregion` blocks explaining design decisions, and the codebase is heavily commented by intent (it's a teaching project). Preserve that style and density when editing.
 
 ## Gotchas

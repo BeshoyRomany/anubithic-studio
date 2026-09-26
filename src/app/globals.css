@@ -51,40 +51,43 @@
 }
 
 :root {
+  /* Light "desert day": ivory + indigo ink; gold darkened for contrast */
   --radius: 0.475rem;
-  --background: oklch(0.2925 0.0157 264.3);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.982 0.008 85);
+  --foreground: oklch(0.22 0.02 264);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.22 0.02 264);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.25 0.012 264.34);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.3404 0.0205 265.97);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.22 0.02 264);
+  --primary: oklch(0.26 0.02 264);
+  --primary-foreground: oklch(0.985 0.005 85);
+  --secondary: oklch(0.95 0.01 85);
+  --secondary-foreground: oklch(0.26 0.02 264);
+  --muted: oklch(0.95 0.01 85);
+  --muted-foreground: oklch(0.5 0.02 264);
+  --accent: oklch(0.935 0.02 85);
+  --accent-foreground: oklch(0.26 0.02 264);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --separator-border: oklch(1 0 0 / 10%);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.22 0.02 264 / 12%);
+  --separator-border: oklch(0.22 0.02 264 / 10%);
+  --input: oklch(0.22 0.02 264 / 16%);
   --ring: oklch(0.6562 0.1826 262.74);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.25 0.012 264.34);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --logo: oklch(65.21% 0.13 81.57);
+  --sidebar: oklch(0.965 0.01 85);
+  --sidebar-foreground: oklch(0.22 0.02 264);
+  --sidebar-primary: oklch(0.26 0.02 264);
+  --sidebar-primary-foreground: oklch(0.985 0.005 85);
+  --sidebar-accent: oklch(0.935 0.02 85);
+  --sidebar-accent-foreground: oklch(0.26 0.02 264);
+  --sidebar-border: oklch(0.22 0.02 264 / 12%);
+  --sidebar-ring: oklch(0.6562 0.1826 262.74);
+  --logo: oklch(0.58 0.12 72);
+  /* GlowCard's second border highlight */
+  --glow-sheen: oklch(0.38 0.07 55);
 }
 
 .dark {
@@ -121,6 +124,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --logo: oklch(65.21% 0.13 81.57);
+  --glow-sheen: oklch(1 0 0);
 }
 
 @layer base {
@@ -166,4 +170,25 @@
 
 ::-webkit-scrollbar-thumb {
   @apply rounded-full bg-border border border-transparent border-solid bg-clip-padding;
+}
+
+/* ThemeSwitcher's circular reveal, pure CSS so it runs from the first frame
+ * (starting it from JS flashed on Firefox); origin set via --reveal-* */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  animation: theme-reveal 650ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0px at var(--reveal-x) var(--reveal-y));
+  }
+  to {
+    clip-path: circle(var(--reveal-r) at var(--reveal-x) var(--reveal-y));
+  }
 }

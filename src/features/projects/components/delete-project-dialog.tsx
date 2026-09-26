@@ -291,7 +291,7 @@ const GlowDeleteContent = (props: DeleteContentProps) => {
           (= delete) here. Enter / click are wired explicitly instead. */}
       <div>
         <div className="flex flex-col gap-3 px-5 pt-4 pb-5">
-          <p className="rounded-lg border border-dashed border-white/10 bg-white/3 px-3 py-2 text-xs text-muted-foreground">
+          <p className="rounded-lg border border-dashed border-foreground/10 bg-foreground/3 px-3 py-2 text-xs text-muted-foreground">
             Want to keep your code? Export the project to GitHub before deleting
             it.
           </p>
@@ -319,12 +319,12 @@ const GlowDeleteContent = (props: DeleteContentProps) => {
               placeholder={project?.name}
               autoComplete="off"
               aria-label="Project name confirmation"
-              className="h-10 rounded-lg border-white/10 bg-white/3! placeholder:text-muted-foreground/40 focus-visible:border-destructive/60 focus-visible:ring-destructive/20"
+              className="h-10 rounded-lg border-foreground/10 bg-foreground/3! placeholder:text-muted-foreground/40 focus-visible:border-destructive/60 focus-visible:ring-destructive/20"
             />
           </label>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-white/5 px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-foreground/5 px-5 py-3">
           <Button
             type="button"
             variant="ghost"
@@ -343,7 +343,7 @@ const GlowDeleteContent = (props: DeleteContentProps) => {
                 variant="outline"
                 size="sm"
                 disabled={isDeleting}
-                className="rounded-lg border-white/10 bg-white/3! hover:border-logo/40 hover:text-logo"
+                className="rounded-lg border-foreground/10 bg-foreground/3! hover:border-logo/40 hover:text-logo"
               >
                 {isExporting ? (
                   <LoaderIcon className="size-3.5 animate-spin" />

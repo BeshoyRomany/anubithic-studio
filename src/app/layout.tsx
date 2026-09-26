@@ -7,7 +7,7 @@ import "allotment/dist/style.css";
 // the fade/slide-in transitions never play.
 import "streamdown/styles.css";
 import "./globals.css";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -36,7 +36,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${plexMono.variable} antialiased`}>
         <Providers>
           {children}
-          <Toaster theme="dark" position="bottom-right" />
+          <Toaster position="bottom-right" />
         </Providers>
       </body>
     </html>
