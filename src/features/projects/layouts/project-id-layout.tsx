@@ -6,7 +6,7 @@ import { Navbar } from "../components/navbar";
 import { PresenceBar } from "../components/presence-bar";
 import { Allotment } from "allotment";
 import { useEffect } from "react";
-import { LoaderIcon } from "lucide-react";
+import { LogoLoader } from "@/components/logo-loader";
 import { useDeletingProjectStore } from "../store/use-deleting-project-store";
 
 const MIN_SIDEBAR_WIDTH = 200;
@@ -37,12 +37,7 @@ export const ProjectIdLayout = ({
   //Project is being deleted -> unmount the whole IDE so none of its queries
   //throw "Project not found" (see use-deleting-project-store.ts)
   if (deletingProjectId === projectId) {
-    return (
-      <div className="w-full h-screen flex flex-col items-center justify-center gap-3 bg-sidebar text-muted-foreground">
-        <LoaderIcon className="size-5 animate-spin" />
-        <span className="text-sm">Deleting project...</span>
-      </div>
-    );
+    return <LogoLoader label="Deleting project..." className="bg-sidebar" />;
   }
 
   return (
