@@ -144,6 +144,21 @@
 }
 
 @theme inline {
+  /* LogoLoader's slow fade */
+  --animate-logo-breathe: logo-breathe 2s ease-in-out infinite;
+
+  @keyframes logo-breathe {
+    0%,
+    100% {
+      opacity: 0.25;
+      transform: scale(0.95);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
   --animate-cell-ripple: cell-ripple var(--duration, 200ms) ease-out none 1
     var(--delay, 0ms);
 

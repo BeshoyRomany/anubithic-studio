@@ -5,13 +5,9 @@ import { useTheme } from "next-themes";
 
 const GOLD = "212, 170, 90";
 
-//Canvas colors per theme; "day" is the light theme's desert afternoon
+//Pyramid/horizon colors per theme; "day" is the light theme's desert afternoon
 const PALETTES = {
   night: {
-    energy: GOLD,
-    pulse: "255, 225, 160",
-    peak: "255, 235, 180",
-    orionLines: "rgba(255, 255, 255, 0.07)",
     horizonGlow: 0.07,
     litTop: "rgb(74, 60, 46)",
     litBottom: "rgb(36, 30, 30)",
@@ -19,10 +15,6 @@ const PALETTES = {
     ridge: GOLD,
   },
   day: {
-    energy: "184, 128, 40",
-    pulse: "196, 120, 20",
-    peak: "235, 160, 50",
-    orionLines: "rgba(120, 90, 50, 0.18)",
     horizonGlow: 0.22,
     litTop: "rgb(232, 196, 138)",
     litBottom: "rgb(204, 158, 100)",
@@ -158,13 +150,9 @@ const NightSky = () => {
           ? width * 0.5
           : Math.min(width * 0.78, width - b * 1.08 - 16);
       scale = Math.min(width, height) * 0.02;
-      //Low afternoon sun, left of Khufu (day only)
-      sun = {
-        x: Math.max(width * 0.15, groupX - b * 1.35),
-        y: horizon - b * 0.62,
-        r: b * 0.16,
-      };
       orionY = height * 0.34;
+      //By day the sun takes Orion's place above the pyramids
+      sun = { x: groupX, y: orionY, r: scale * 2.6 };
 
       const count = Math.min(500, Math.floor((width * horizon) / 3000));
       stars = Array.from({ length: count }, () => {
@@ -294,8 +282,37 @@ const NightSky = () => {
     };
     // #endregion
 
-    // Sun disc with a wide warm halo.
-    const drawSun = () => {
+    // Sun disc with slowly turning rays and a wide warm halo.
+    const drawSun = (t: number) => {
+      const RAYS = 14;
+      const rayLen = sun.r * 9;
+      const turn = reducedMotion ? 0 : t * 0.04;
+      for (let i = 0; i < RAYS; i++) {
+        const angle = turn + (i / RAYS) * Math.PI * 2;
+        // Alternate long/short rays; each breathes on its own phase.
+        const len =
+          rayLen *
+          (i % 2 ? 0.6 : 1) *
+          (reducedMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 0.6 + i));
+        const spread = 0.05;
+        const ray = ctx.createRadialGradient(
+          sun.x,
+          sun.y,
+          sun.r,
+          sun.x,
+          sun.y,
+          len,
+        );
+        ray.addColorStop(0, "rgba(255, 205, 120, 0.2)");
+        ray.addColorStop(1, "rgba(255, 205, 120, 0)");
+        ctx.fillStyle = ray;
+        ctx.beginPath();
+        ctx.moveTo(sun.x, sun.y);
+        ctx.arc(sun.x, sun.y, len, angle - spread, angle + spread);
+        ctx.closePath();
+        ctx.fill();
+      }
+
       const halo = ctx.createRadialGradient(
         sun.x,
         sun.y,
@@ -328,13 +345,166 @@ const NightSky = () => {
       ctx.fill();
     };
 
+    // #region Birds
+    // Flap-and-glide flight: a burst of wingbeats (quick downstroke, slower
+    // upstroke, body lifting on each beat), then a glide with wings held in a
+    // shallow V while slowly sinking. Stateless: everything derives from time.
+    // `depth` (0 far → 1 near) scales size, ink, speed and wingbeat rate.
+    const BIRDS = [
+      // A loose pair...
+      {
+        speed: 22,
+        offset: 0,
+        y: 0.17,
+        size: 10,
+        depth: 1,
+        hz: 3.2,
+        flap: 1.3,
+        glide: 2.6,
+        phase: 0,
+      },
+      {
+        speed: 22,
+        offset: -34,
+        y: 0.19,
+        size: 9.5,
+        depth: 0.95,
+        hz: 3.4,
+        flap: 1.1,
+        glide: 2.9,
+        phase: 0.7,
+      },
+      // ...and two distant singles.
+      {
+        speed: 15,
+        offset: 520,
+        y: 0.26,
+        size: 7,
+        depth: 0.6,
+        hz: 4,
+        flap: 1,
+        glide: 3.4,
+        phase: 1.9,
+      },
+      {
+        speed: 11,
+        offset: 900,
+        y: 0.11,
+        size: 5.5,
+        depth: 0.35,
+        hz: 4.6,
+        flap: 0.9,
+        glide: 3.8,
+        phase: 3.1,
+      },
+    ];
+    const GLIDE_ANGLE = 0.35;
+
+    // Wing angle (+1 up, -1 down), body bob and sink for a bird at time t.
+    const birdPose = (bird: (typeof BIRDS)[number], t: number) => {
+      const sink = bird.size * 1.8;
+      if (reducedMotion) return { angle: GLIDE_ANGLE, bob: 0, drop: 0 };
+      const ct =
+        (((t + bird.phase) % (bird.flap + bird.glide)) +
+          bird.flap +
+          bird.glide) %
+        (bird.flap + bird.glide);
+      if (ct < bird.flap) {
+        const p = ct * bird.hz * Math.PI * 2;
+        // Ease the wingbeat in and out of the glide.
+        const amp = Math.min(1, ct / 0.25, (bird.flap - ct) / 0.25);
+        // Phase warp → the downstroke is faster than the upstroke.
+        const stroke = Math.cos(p + 0.35 * Math.sin(p));
+        return {
+          angle: GLIDE_ANGLE * (1 - amp) + stroke * amp,
+          bob: -Math.sin(p) * bird.size * 0.1 * amp,
+          drop: sink * (1 - ct / bird.flap), // climbing back up
+        };
+      }
+      const g = (ct - bird.flap) / bird.glide;
+      return {
+        angle: GLIDE_ANGLE + 0.05 * Math.sin(t * 1.3 + bird.phase),
+        bob: 0,
+        drop: sink * g, // slowly losing height
+      };
+    };
+
+    const drawBirds = (t: number) => {
+      const span = width + 200;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const bird of BIRDS) {
+        const travel = bird.offset + (reducedMotion ? 0 : t * bird.speed);
+        const x = (((travel % span) + span) % span) - 100;
+        const { angle, bob, drop } = birdPose(bird, t);
+        // Wingtips trail the stroke slightly, so the wing bends at the wrist.
+        const tipAngle = birdPose(bird, t - 0.045).angle;
+        const y =
+          height * bird.y + drop + bob + 6 * Math.sin(t * 0.3 + bird.phase);
+        const w = bird.size;
+
+        const ink = 0.25 + 0.35 * bird.depth;
+        ctx.strokeStyle = `rgba(90, 68, 48, ${ink})`;
+        ctx.fillStyle = `rgba(90, 68, 48, ${ink})`;
+        ctx.lineWidth = 0.9 + 0.6 * bird.depth;
+        for (const side of [-1, 1]) {
+          const wristX = x + side * w * 0.45;
+          const wristY = y - angle * w * 0.35;
+          const tipX = x + side * w;
+          const tipY = y - tipAngle * w * 0.75 + w * 0.1;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.quadraticCurveTo(
+            x + side * w * 0.2,
+            y - angle * w * 0.3 - w * 0.1,
+            wristX,
+            wristY,
+          );
+          ctx.quadraticCurveTo(
+            x + side * w * 0.75,
+            wristY - w * 0.05,
+            tipX,
+            tipY,
+          );
+          ctx.stroke();
+        }
+        // Small body.
+        ctx.beginPath();
+        ctx.ellipse(x, y + w * 0.04, w * 0.14, w * 0.09, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+    // #endregion
+
+    // Capstones catch the sun and glint in turn (the day's "belt pulse").
+    const drawCapstones = (t: number) => {
+      for (const [i, p] of pyramids.entries()) {
+        const x = p.cx;
+        const y = p.base - p.height;
+        const ember = ctx.createRadialGradient(x, y, 0, x, y, 7);
+        ember.addColorStop(0, "rgba(255, 225, 150, 0.9)");
+        ember.addColorStop(1, "rgba(235, 170, 70, 0)");
+        ctx.fillStyle = ember;
+        ctx.beginPath();
+        ctx.arc(x, y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        if (!reducedMotion) {
+          const flash = Math.max(0, Math.sin(t * 0.7 - i * 2.1)) ** 20;
+          drawSparkle(x, y, 28, "235, 165, 60", flash);
+        }
+      }
+    };
+
     const draw = (time: number) => {
       const t = time / 1000;
       const isDay = isDayRef.current;
       const pal = isDay ? PALETTES.day : PALETTES.night;
       ctx.clearRect(0, 0, width, height);
 
-      if (isDay) drawSun();
+      if (isDay) {
+        drawSun(t);
+        drawBirds(t);
+      }
 
       // By day, a quarter of the stars become sand motes drifting right.
       if (isDay) {
@@ -368,10 +538,10 @@ const NightSky = () => {
         }
       }
 
-      // Orion's figure lines.
-      ctx.strokeStyle = pal.orionLines;
+      // Orion's figure lines (night only, like the rest of Orion).
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
       ctx.lineWidth = 0.7;
-      for (const [a, b] of ORION_LINES) {
+      for (const [a, b] of isDay ? [] : ORION_LINES) {
         const pa = orionPoint(ORION[a]);
         const pb = orionPoint(ORION[b]);
         ctx.beginPath();
@@ -382,11 +552,10 @@ const NightSky = () => {
 
       // Orion's stars, with a soft halo; the belt pulses gently in gold and
       // the others flash shiny glints in turn (staggered by index).
-      for (const [index, star] of Object.values(ORION).entries()) {
+      for (const [index, star] of isDay ? [] : Object.values(ORION).entries()) {
         const { x, y } = orionPoint(star);
         const isBelt = star.belt !== undefined;
-        // By day Orion reads as a star chart inked in gold.
-        const color = isDay ? pal.energy : star.color;
+        const color = star.color;
         const pulse =
           isBelt && !reducedMotion
             ? 1 + 0.25 * Math.sin(t * 0.8 + (star.belt ?? 0))
@@ -405,7 +574,7 @@ const NightSky = () => {
         ctx.arc(x, y, star.r, 0, Math.PI * 2);
         ctx.fill();
 
-        if (!isBelt && !isDay && !reducedMotion) {
+        if (!isBelt && !reducedMotion) {
           const flash = Math.max(0, Math.sin(t * 0.9 + index * 2.1)) ** 16;
           drawSparkle(x, y, star.r * 12, star.color, flash);
         }
@@ -466,6 +635,7 @@ const NightSky = () => {
 
       // Pyramids, back to front (Menkaure is the nearest).
       for (const p of pyramids) drawPyramid(p, pal);
+      if (isDay) drawCapstones(t);
 
       // #region Energy streams
       // Each belt star feeds its pyramid through a straight channel. Every 4.5s a pulse
@@ -474,7 +644,7 @@ const NightSky = () => {
       // then decay exponentially. Streams are staggered by a third of a cycle.
       const CYCLE = 4.5;
       const TRAVEL = 0.55;
-      for (const star of Object.values(ORION)) {
+      for (const star of isDay ? [] : Object.values(ORION)) {
         if (star.belt === undefined) continue;
         const p = pyramids[star.belt];
         const from = orionPoint(star);
@@ -492,7 +662,7 @@ const NightSky = () => {
           : Math.exp(-(phase - TRAVEL) * 14) * (reducedMotion ? 0.3 : 1);
 
         // The channel itself: barely there, lighting up on arrival.
-        ctx.strokeStyle = `rgba(${pal.energy}, ${(isDay ? 0.15 : 0.06) + 0.35 * flash})`;
+        ctx.strokeStyle = `rgba(${GOLD}, ${0.06 + 0.35 * flash})`;
         ctx.lineWidth = 1 + 1.5 * flash;
         ctx.lineCap = "round";
         ctx.beginPath();
@@ -510,7 +680,7 @@ const NightSky = () => {
             if (u1 <= 0) continue;
             const a = at(Math.max(0, u0));
             const b = at(u1);
-            ctx.strokeStyle = `rgba(${pal.pulse}, ${((i + 1) / STEPS) ** 2 * 0.9})`;
+            ctx.strokeStyle = `rgba(255, 225, 160, ${((i + 1) / STEPS) ** 2 * 0.9})`;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
@@ -526,8 +696,8 @@ const NightSky = () => {
             head.y,
             7,
           );
-          headGlow.addColorStop(0, `rgba(${pal.peak}, 0.95)`);
-          headGlow.addColorStop(1, `rgba(${pal.energy}, 0)`);
+          headGlow.addColorStop(0, "rgba(255, 240, 200, 0.95)");
+          headGlow.addColorStop(1, `rgba(${GOLD}, 0)`);
           ctx.fillStyle = headGlow;
           ctx.beginPath();
           ctx.arc(head.x, head.y, 7, 0, Math.PI * 2);
@@ -537,8 +707,8 @@ const NightSky = () => {
         // The peak: a dim ember that flares when the energy lands.
         const glowR = 6 + 26 * flash;
         const peak = ctx.createRadialGradient(to.x, to.y, 0, to.x, to.y, glowR);
-        peak.addColorStop(0, `rgba(${pal.peak}, ${0.35 + 0.65 * flash})`);
-        peak.addColorStop(1, `rgba(${pal.energy}, 0)`);
+        peak.addColorStop(0, `rgba(255, 235, 180, ${0.35 + 0.65 * flash})`);
+        peak.addColorStop(1, `rgba(${GOLD}, 0)`);
         ctx.fillStyle = peak;
         ctx.beginPath();
         ctx.arc(to.x, to.y, glowR, 0, Math.PI * 2);

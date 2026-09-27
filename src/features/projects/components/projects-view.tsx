@@ -119,8 +119,8 @@ export const ProjectsView = () => {
               today?
             </h1>
             <p className="max-w-lg text-sm text-muted-foreground">
-              Prompt full projects into existence, refine every line of code,
-              and preview instantly, all in your browser.
+              Prompt full projects into existence, refine every line with your
+              team in real time, and preview instantly, all in your browser.
             </p>
           </div>
 
