@@ -21,6 +21,7 @@ import {
 
 import { Id } from "../../../../convex/_generated/dataModel";
 import { ShortcutKeys } from "./shortcut-keys";
+import { ModelPicker } from "@/features/ai/components/model-picker";
 import { useTypewriterPlaceholder } from "../hooks/use-typewriter-placeholder";
 
 const SUGGESTIONS = [
@@ -135,6 +136,8 @@ export const NewProjectPrompt = ({
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
+            {/* The picker reads the user's settings, so only once signed in */}
+            {isAuthenticated && <ModelPicker />}
             <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
               <ShortcutKeys keys={["↵"]} mod={false} /> send
               <span className="mx-1">·</span>

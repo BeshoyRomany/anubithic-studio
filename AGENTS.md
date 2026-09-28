@@ -12,14 +12,15 @@ Anubithic Studio is a browser-based IDE (Replit-style project workspace with fil
 
 ## Stack
 
-Next.js 16 (App Router, React 19) · Convex (database + server functions) · Clerk (auth) · Inngest (background jobs) · Sentry (error tracking) · Vercel AI SDK (Google + Anthropic) · Firecrawl (scraping) · CodeMirror 6 (editor) · Tailwind v4 + shadcn/ui (new-york style) · Zustand (editor state).
+Next.js 16 (App Router, React 19) · Convex (database + server functions) · Clerk (auth) · Inngest (background jobs) · Sentry (error tracking) · Vercel AI SDK + Inngest agent-kit (Anthropic, OpenAI, Gemini, DeepSeek, Qwen, local Ollama) · Firecrawl (scraping) · CodeMirror 6 (editor) · Tailwind v4 + shadcn/ui (new-york style) · Zustand (editor state).
 
 ## Structure & boundaries
 
 - `src/app/` — routes only: `/` (home), `/projects/[projectId]` (the IDE layout), `/api/inngest` (Inngest route handler). Feature logic does not live here; pages delegate to `src/features/`.
 - `src/features/<name>/` — feature modules (`auth`, `projects`, `editor`) organized into `views/`, `components/`, `hooks/`, `layouts/`, plus `extensions/` and `store/` in the editor. New feature code belongs in a feature folder, not in `app/` or a shared directory.
 - `src/components/ui/` — shadcn/ui primitives; prefer regenerating via the `shadcn` CLI over hand-editing.
-- `src/inngest/` — Inngest client (id `anubithic-studio`, Sentry middleware) and functions. Functions use `step.run` steps; the AI functions extract URLs from prompts and scrape them via Firecrawl before calling the model.
+- `src/inngest/` — Inngest client (id `anubithic-studio`, Sentry middleware). Inngest functions live with their feature and are registered in `src/app/api/inngest/route.ts`.
+- `src/features/ai/` — the only place that chooses a model: `models.ts` (registry), `server/resolve-model.ts` (`resolveModel()` → AI SDK model + agent-kit model, call it outside `step.run`), `prompts/` (written once, rendered as XML for Claude or markdown for others), `utils/clean-output.ts`. Never import a provider directly in a feature. Models run on the user's own encrypted key (`/api/ai-keys`, `aiKeys` table); agent-kit calls go through `/api/ai-proxy` with a scoped, run-bound capability so Inngest never sees the key. AI credential data is behind `AI_CREDENTIALS_CONVEX_KEY` (`convex/aiCredentials.ts`), not the general internal key. Log AI errors only via `logAiError`. Security design, rotation runbook and threat model: `docs/security/byok.md`; tests: `npm test`.
 - `src/proxy.ts` — Clerk middleware (Next.js 16's replacement for `middleware.ts`). The Sentry tunnel route `/monitoring` must not be caught by its matcher.
 - `convex/` — backend: `schema.ts` (tables `projects`, `files`), `projects.ts`, `files.ts`, `auth.ts`/`auth.config.ts`. `convex/_generated/` is auto-generated — never edit it.
 - `src/lib/` — shared clients (`firecrawl.ts`) and `utils.ts` (`cn`).

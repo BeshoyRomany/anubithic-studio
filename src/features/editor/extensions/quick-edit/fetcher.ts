@@ -1,4 +1,4 @@
-import ky from "ky";
+import ky, { HTTPError } from "ky";
 import { toast } from "sonner";
 import {
   QuickEditRequest,
@@ -27,6 +27,14 @@ export const fetcher = async (
     return validatedResponse.editedCode || null;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
+      return null;
+    }
+    // No key for the chosen model: say which key to add
+    if (error instanceof HTTPError && error.response.status === 402) {
+      const body = (await error.response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      toast.error(body?.error ?? "Add an API key for the chosen model");
       return null;
     }
     console.error("Fetcher error details:", error);

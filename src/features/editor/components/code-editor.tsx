@@ -12,6 +12,8 @@ import { suggestion } from "../extensions/suggestion";
 import { quickEdit } from "../extensions/quick-edit";
 import { selectionTooltip } from "../extensions/selection-tooltip-extionsion";
 import { formatCodeExtension } from "../extensions/code-format-extension";
+import { useChosenModel } from "@/features/ai/hooks/use-ai-settings";
+import { setCurrentModelLabel } from "@/features/ai/current-model-label";
 
 interface CodeEditorProps {
   fileName: string;
@@ -35,6 +37,12 @@ export const CodeEditor = ({
   const isDark = resolvedTheme !== "light";
   const isDarkRef = useRef(isDark);
   const themeCompartmentRef = useRef(new Compartment());
+
+  // Lets the quick-edit popup (plain DOM) show the model that will run the edit
+  const chosenModel = useChosenModel();
+  useEffect(() => {
+    setCurrentModelLabel(chosenModel?.label ?? "");
+  }, [chosenModel]);
 
   const languageExtension = useMemo(
     () => getLanguageExtension(fileName),

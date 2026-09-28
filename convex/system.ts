@@ -91,6 +91,7 @@ export const updateMessageContent = mutation({
         v.literal("cancelled"),
       ),
     ),
+    errorCode: v.optional(v.literal("no_key")),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
@@ -98,6 +99,7 @@ export const updateMessageContent = mutation({
     await ctx.db.patch(args.messageId, {
       content: args.content,
       status: args.status ?? "processing", // Enforce literal type using as const for schema compliance
+      errorCode: args.errorCode, // undefined clears it on normal updates
     });
   },
 });

@@ -1,14 +1,26 @@
 import { inngest } from "@/inngest/client";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { anthropic, NonRetriableError, openai } from "inngest";
+import { NonRetriableError } from "inngest";
 import { convex } from "@/lib/convex-client";
 import { api } from "../../../../convex/_generated/api";
 
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import {
-  CODING_AGENT_SYSTEM_PROMPT,
+  buildCodingAgentPrompt,
+  PLAIN_REPLY_SYSTEM_PROMPT,
   TITLE_GENERATOR_SYSTEM_PROMPT,
-} from "../prompts/process-message-prompt";
+} from "@/features/ai/prompts/coding-agent";
+import {
+  getChosenModel,
+  hasProviderKey,
+  NoKeyError,
+} from "@/features/ai/server/credentials";
+import { createAgentModel } from "@/features/ai/server/resolve-model";
+import { AI_LIMITS } from "@/features/ai/server/ai-limits";
+import {
+  looksLikeFakeToolCall,
+  stripThinking,
+} from "@/features/ai/utils/clean-output";
 import { createAgent, createNetwork } from "@inngest/agent-kit";
 import { createListFilesTool } from "./tools/list-files";
 import { createReadFilesTool } from "./tools/read-files";
@@ -24,6 +36,8 @@ interface MessageEvent {
   conversationId: Id<"conversations">;
   projectId: Id<"projects">;
   message: string;
+  //Who sent it: the agent runs on this user's model and key
+  userId: string;
 }
 
 export const processMessage = inngest.createFunction(
@@ -32,6 +46,10 @@ export const processMessage = inngest.createFunction(
     triggers: {
       event: "message/sent",
     },
+    //Caps how many agent runs (each billed to the sender's key) one user has in flight
+    concurrency: [
+      { key: "event.data.userId", limit: AI_LIMITS.agentConcurrencyPerUser },
+    ],
     cancelOn: [
       {
         event: "message/cancel",
@@ -57,13 +75,57 @@ export const processMessage = inngest.createFunction(
     },
   },
   async ({ event, step }) => {
-    const { messageId, conversationId, message, projectId } =
+    const { messageId, conversationId, message, projectId, userId } =
       event.data as MessageEvent;
 
     const internalKey = process.env.ANUBITHIC_STUDIO_CONVEX_INTERNAL_KEY;
 
     if (!internalKey) {
       throw new NonRetriableError("Internal key not configured");
+    }
+
+    // Ends the run with a plain explanation instead of the generic failure message.
+    const finishWithMessage = async (content: string, errorCode?: "no_key") => {
+      await step.run("finish-with-message", async () => {
+        await convex.mutation(api.system.updateMessageContent, {
+          internalKey,
+          messageId,
+          content,
+          status: "completed",
+          errorCode,
+        });
+      });
+      return { success: false, messageId, conversationId };
+    };
+
+    if (!userId) {
+      throw new NonRetriableError("Message event has no userId");
+    }
+
+    // Safe to store in Inngest: a model id and a yes/no, never the key itself.
+    // The whole definition is stored: a local model only exists in the user's settings.
+    const { definition, hasKey } = await step.run(
+      "load-model-choice",
+      async () => {
+        const model = await getChosenModel(userId);
+        return {
+          definition: model,
+          hasKey: await hasProviderKey(userId, model.provider),
+        };
+      },
+    );
+
+    if (!hasKey) {
+      return finishWithMessage(
+        new NoKeyError(definition.provider).message,
+        "no_key",
+      );
+    }
+
+    if (!definition.supportsTools) {
+      return finishWithMessage(
+        `${definition.label} can't call tools, so it can't edit your files. Pick a model with tool support to use the coding agent.`,
+      );
     }
 
     await step.run("set-initial-thinking", async () => {
@@ -95,19 +157,15 @@ export const processMessage = inngest.createFunction(
       });
     });
 
-    let systemPrompt = CODING_AGENT_SYSTEM_PROMPT;
+    const historyText = recentMessages
+      .filter((msg) => msg._id !== messageId && msg.content.trim() !== "")
+      .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
+      .join("\n\n");
 
-    const contextMessages = recentMessages.filter(
-      (msg) => msg._id !== messageId && msg.content.trim() !== "",
+    const systemPrompt = buildCodingAgentPrompt(
+      definition.promptProfile,
+      historyText,
     );
-
-    if (contextMessages.length > 0) {
-      const historyText = contextMessages
-        .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
-        .join("\n\n");
-
-      systemPrompt += `\n\n## Previous Conversation (for context only - do NOT repeat these responses):\n${historyText}\n\n## Current Request:\nRespond ONLY to the user's new message below. Do not repeat or reference your previous responses.`;
-    }
 
     // 1- [Agent] generate title
     const shouldGenerateTitle =
@@ -117,19 +175,16 @@ export const processMessage = inngest.createFunction(
       const titleAgent = createAgent({
         name: "title-generator",
         system: TITLE_GENERATOR_SYSTEM_PROMPT,
-        model: anthropic({
-          model: "claude-haiku-4-5-20251001",
-          defaultParameters: { temperature: 0.3, max_tokens: 50 },
-        }),
+        // Roomy token budget: reasoning models spend tokens thinking before the few-word title
+        model: createAgentModel(
+          definition,
+          { userId, projectId, runId: messageId },
+          {
+            maxTokens: 1024,
+            temperature: 0.3,
+          },
+        ),
       });
-      // const titleAgent = createAgent({
-      //   name: "title-generator",
-      //   system: TITLE_GENERATOR_SYSTEM_PROMPT,
-      //   model: openai({
-      //     model: "gpt-4.1-mini",
-      //     defaultParameters: { temperature: 0.3 },
-      //   }),
-      // });
       const { output } = await titleAgent.run(message, { step });
 
       const textMessage = output.find(
@@ -137,13 +192,11 @@ export const processMessage = inngest.createFunction(
       );
 
       if (textMessage?.type === "text") {
-        const title =
+        const title = stripThinking(
           typeof textMessage.content === "string"
-            ? textMessage.content.trim()
-            : textMessage.content
-                .map((c) => c.text)
-                .join("")
-                .trim();
+            ? textMessage.content
+            : textMessage.content.map((c) => c.text).join(""),
+        );
 
         if (title) {
           await step.run("update-conversation-title", async () => {
@@ -162,10 +215,14 @@ export const processMessage = inngest.createFunction(
       name: "anubithic-studio",
       description: "An expert AI coding assistant",
       system: systemPrompt,
-      model: anthropic({
-        model: "claude-haiku-4-5-20251001",
-        defaultParameters: { temperature: 0.3, max_tokens: 16000 },
-      }),
+      model: createAgentModel(
+        definition,
+        { userId, projectId, runId: messageId },
+        {
+          maxTokens: 16000,
+          temperature: 0.3,
+        },
+      ),
       tools: [
         createListFilesTool({ internalKey, projectId, messageId }),
         createReadFilesTool({ internalKey, messageId }),
@@ -177,26 +234,6 @@ export const processMessage = inngest.createFunction(
         createScrapeUrlsTool({ internalKey, messageId }),
       ],
     });
-
-    // const codingAgent = createAgent({
-    //   name: "anubithic-studio",
-    //   description: "An expert AI coding assistant",
-    //   system: systemPrompt,
-    //   model: openai({
-    //     model: "gpt-4.1-mini",
-    //     defaultParameters: { temperature: 0.3 },
-    //   }),
-    //   tools: [
-    //     createListFilesTool({ internalKey, projectId, messageId }),
-    //     createReadFilesTool({ internalKey, messageId }),
-    //     createUpdateFileTool({ internalKey, messageId }),
-    //     createCreateFilesTool({ internalKey, projectId, messageId }),
-    //     createCreateFolderTool({ internalKey, projectId, messageId }),
-    //     createRenameFileTool({ internalKey, messageId }),
-    //     createDeleteFilesTool({ internalKey, messageId }),
-    //     createScrapeUrlsTool({ internalKey, messageId }),
-    //   ],
-    // });
 
     // Create network with single agent
     // Create an autonomous agentic network (max 20 iterations) to avoid infinite loops and handle multi-step
@@ -217,6 +254,10 @@ export const processMessage = inngest.createFunction(
         // Anthropic outputs text AND tool calls together
         // Only stop if there's text WITHOUT tool calls (final response)
         if (hasTextResponse && !hasToolCalls) {
+          return undefined;
+        }
+        // A call that returned nothing (provider error): retrying just repeats it, up to maxIter times
+        if (lastResult && !hasTextResponse && !hasToolCalls) {
           return undefined;
         }
         // If the agent hasn't finished yet (still needs tools or more steps),
@@ -240,10 +281,43 @@ export const processMessage = inngest.createFunction(
 
     // Extract and format the final text response (handling both string and array content blocks from the model)
     if (textMessage?.type === "text") {
-      assistantResponse =
+      assistantResponse = stripThinking(
         typeof textMessage.content === "string"
           ? textMessage.content
-          : textMessage.content.map((c) => c.text).join("");
+          : textMessage.content.map((c) => c.text).join(""),
+      );
+    }
+
+    // Small models may print a made-up tool call instead of answering: ask once more, no tools
+    if (looksLikeFakeToolCall(assistantResponse)) {
+      const plainAgent = createAgent({
+        name: "plain-reply",
+        system: historyText
+          ? `${PLAIN_REPLY_SYSTEM_PROMPT}\n\nRecent conversation:\n${historyText}`
+          : PLAIN_REPLY_SYSTEM_PROMPT,
+        model: createAgentModel(
+          definition,
+          { userId, projectId, runId: messageId },
+          { maxTokens: 1024, temperature: 0.3 },
+        ),
+      });
+      const { output } = await plainAgent.run(message, { step });
+      const plain = output.find(
+        (m) => m.type === "text" && m.role === "assistant",
+      );
+      const plainText =
+        plain?.type === "text"
+          ? stripThinking(
+              typeof plain.content === "string"
+                ? plain.content
+                : plain.content.map((c) => c.text).join(""),
+            )
+          : "";
+
+      assistantResponse =
+        plainText && !looksLikeFakeToolCall(plainText)
+          ? plainText
+          : `${definition.label} couldn't answer this properly. Small models often struggle with the agent: try a 7B model or larger, like qwen2.5-coder:7b.`;
     }
 
     // Update the assistant message with the response (this also sets status to completed)
