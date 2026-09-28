@@ -1,6 +1,7 @@
 import { Tooltip, showTooltip, keymap, EditorView } from "@codemirror/view";
 import { StateField, EditorState, StateEffect } from "@codemirror/state";
 import { fetcher } from "./fetcher";
+import { getCurrentModelLabel } from "@/features/ai/current-model-label";
 
 export const showQuickEditEffect = StateEffect.define<boolean>();
 
@@ -144,8 +145,18 @@ const createQuickEditTooltip = (state: EditorState): readonly Tooltip[] => {
           currentAbortController = null;
         };
 
-        buttonContainer.appendChild(cancelButton);
-        buttonContainer.appendChild(submitButton);
+        // Which model will run this edit (the one picked in the chat input)
+        const modelLabel = document.createElement("span");
+        modelLabel.className = "font-sans text-xs text-muted-foreground truncate";
+        modelLabel.textContent = getCurrentModelLabel();
+
+        const actions = document.createElement("div");
+        actions.className = "flex items-center gap-1";
+        actions.appendChild(cancelButton);
+        actions.appendChild(submitButton);
+
+        buttonContainer.appendChild(modelLabel);
+        buttonContainer.appendChild(actions);
 
         form.appendChild(input);
         form.appendChild(buttonContainer);

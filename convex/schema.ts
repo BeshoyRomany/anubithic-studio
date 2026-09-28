@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { string } from "zod/v4";
+import { aiKeyProvider } from "./aiKeyProviders";
 
 export default defineSchema({
   //#region Users table
@@ -143,6 +144,93 @@ export default defineSchema({
     // Composite index to efficiently fetch files/folders inside a specific parent folder within a specific project
     .index("by_project_parent", ["projectId", "parentId"]),
 
+  //Users' own AI provider keys (Bring Your Own Key). Only ciphertext lives here:
+  //the encryption secret is in the Next.js env, never in Convex.
+  aiKeys: defineTable({
+    //Clerk id (same as users.clerkId)
+    userId: v.string(),
+    provider: aiKeyProvider,
+    //AES-256-GCM output, base64
+    ciphertext: v.string(),
+    iv: v.string(),
+    authTag: v.string(),
+    //Which encryption secret sealed it, so the secret can be rotated later
+    keyVersion: v.number(),
+    //The only part of the key ever shown back to the user
+    last4: v.string(),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    //The keys panel lists these
+    .index("by_user", ["userId"])
+    //One key per user per provider
+    .index("by_user_provider", ["userId", "provider"])
+    //Master-key rotation walks the rows still sealed with an old version
+    .index("by_key_version", ["keyVersion"]),
+
+  //Who saved, replaced, deleted or re-encrypted a key, and when. Never key material.
+  aiKeyAudit: defineTable({
+    userId: v.string(),
+    provider: aiKeyProvider,
+    action: v.union(
+      v.literal("saved"),
+      v.literal("replaced"),
+      v.literal("deleted"),
+      v.literal("rewrapped"),
+    ),
+    //"user" = the key owner's own session; "rotation" = the operator's rotation script
+    actor: v.union(v.literal("user"), v.literal("rotation")),
+    keyVersion: v.optional(v.number()),
+    at: v.number(),
+  }).index("by_user", ["userId"]),
+
+  //Replay budget per agent proxy token (jti). Rows expire with their token.
+  proxyTokenUses: defineTable({
+    jti: v.string(),
+    userId: v.string(),
+    runId: v.string(),
+    uses: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_jti", ["jti"])
+    .index("by_expires", ["expiresAt"]),
+
+  //Fixed-window counters for abuse-prone routes (e.g. /api/ai-keys, which could
+  //otherwise be used to test stolen keys). One row per "<action>:<userId>".
+  rateLimits: defineTable({
+    key: v.string(),
+    windowStart: v.number(),
+    count: v.number(),
+  }).index("by_key", ["key"]),
+
+  //Gemini 3 "thought signatures" that agent-kit drops between agent turns; the AI proxy
+  //stores them and re-attaches them. `key` hashes user + tool call, so no code is stored.
+  //Only needed for the length of one agent run: rows older than a day are purged.
+  geminiSignatures: defineTable({
+    userId: v.string(),
+    key: v.string(),
+    signature: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_user_created", ["userId", "createdAt"]),
+
+  //The one model a user picked; it drives every AI feature. No row → app default.
+  userAiSettings: defineTable({
+    //Clerk id (same as users.clerkId)
+    userId: v.string(),
+    //Registry id from src/features/ai/models.ts, e.g. "anthropic/claude-sonnet-5"
+    modelId: v.string(),
+    //The user's own local model: where Ollama listens and which model it runs.
+    //Written only by /api/ai-local after it tested the connection.
+    ollamaBaseUrl: v.optional(v.string()),
+    localModel: v.optional(v.string()),
+    //From Ollama's /api/show: can this model call tools (run the agent)?
+    localModelSupportsTools: v.optional(v.boolean()),
+    localModelParameterSize: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   conversations: defineTable({
     projectId: v.id("projects"),
     title: v.string(),
@@ -155,6 +243,8 @@ export default defineSchema({
     projectId: v.id("projects"),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
+    //Why the agent stopped early, so the UI can offer a fix (e.g. open the keys panel)
+    errorCode: v.optional(v.literal("no_key")),
     status: v.optional(
       v.union(
         v.literal("processing"),

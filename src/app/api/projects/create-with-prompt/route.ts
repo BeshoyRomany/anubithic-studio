@@ -89,6 +89,7 @@ export async function POST(request: Request) {
       conversationId,
       projectId,
       message: prompt,
+      userId, // the agent runs on the creator's model and key
     },
   });
 

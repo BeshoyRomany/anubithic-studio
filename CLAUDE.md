@@ -11,7 +11,7 @@ Anubithic Studio is a browser-based AI IDE (Replit/Lovable-style): file explorer
 - `npm run lint` — ESLint (`eslint-config-next`, no custom rules)
 - `npx convex dev` — run/sync the Convex backend (no package.json script)
 - `npx inngest-cli@latest dev` — local Inngest dev server if you need to exercise background jobs
-- No test framework is set up.
+- `npm test` — Vitest + convex-test security tests (`tests/`). `npm run ai:check` tests models; `npm run ai:rotate-keys` rotates the key-encryption key (see `docs/security/byok.md`).
 
 ## Stack
 
@@ -45,28 +45,29 @@ Conventions in these functions: wrap every side effect in `step.run`; throw `Non
 
 ### The coding agent
 
-`process-message.ts` builds an agent-kit network. Its tools live one per file in `src/features/conversations/inngest/tools/` (`list-files`, `read-files`, `create-files`, `update-files`, `create-folders`, `rename-file`, `delete-files`, `scrape-urls`) and are factory functions (`createXTool(...)`) closing over `projectId` and the internal key — they mutate Convex, which is what makes edits appear live in the user's editor. Prompts are in `src/features/conversations/prompts/`. A separate small agent generates the conversation title when it is still `DEFAULT_CONVERSATION_TITLE`. Tool progress is surfaced by appending to the `steps` array on the message row.
+`process-message.ts` builds an agent-kit network. Its tools live one per file in `src/features/conversations/inngest/tools/` (`list-files`, `read-files`, `create-files`, `update-files`, `create-folders`, `rename-file`, `delete-files`, `scrape-urls`) and are factory functions (`createXTool(...)`) closing over `projectId` and the internal key — they mutate Convex, which is what makes edits appear live in the user's editor. Model choice and prompts live in `src/features/ai/` (see below). A separate small agent generates the conversation title when it is still `DEFAULT_CONVERSATION_TITLE`. Tool progress is surfaced by appending to the `steps` array on the message row.
 
-Editor-inline AI (quick-edit, suggestion) is a different path: synchronous route handlers `api/quick-edit` and `api/suggestion` calling the Vercel AI SDK directly, paired with CodeMirror extensions under `src/features/editor/extensions/{quick-edit,suggestion}/` (an `index.tsx` for the extension, a `fetcher.ts` for the call). Both AI paths scrape any URLs found in the instruction with Firecrawl and inject them as `<doc url=…>` context.
+Editor-inline AI (quick-edit, suggestion) is a different path: synchronous route handlers `api/quick-edit` and `api/suggestion` calling the Vercel AI SDK, paired with CodeMirror extensions under `src/features/editor/extensions/{quick-edit,suggestion}/` (an `index.tsx` for the extension, a `fetcher.ts` for the call). Both AI paths scrape any URLs found in the instruction with Firecrawl and inject them as `<doc url=…>` context.
 
-### Preview (WebContainers)
+### AI layer (`src/features/ai/`)
 
-[use-webcontainers.ts](src/features/preview/hooks/use-webcontainers.ts) keeps a **module-level singleton** WebContainer plus a boot promise — only one instance may exist per page, so never boot it inside a component. Convex's flat `files` rows are converted to a nested `FileSystemTree` by [file-tree.ts](src/features/preview/utils/file-tree.ts). After the initial mount the hook diffs per-path content and writes only changed files. Install/dev commands come from `projects.settings` (AI-populated on first run, editable in the preview settings popover).
+Never hard-code a model or import a provider (`openai(...)`, `anthropic(...)`) in a feature. `models.ts` is the registry (provider, API id, tier, `promptProfile`, `supportsTools`). ONE model, the user's pick in `userAiSettings`, drives every AI feature, running on the **user's own key** (Bring Your Own Key):
 
-This requires cross-origin isolation: `next.config.ts` sets `Cross-Origin-Embedder-Policy: credentialless` and `COOP: same-origin` on all routes, and the container boots with `coep: "credentialless"`. Don't remove those headers, and be aware they constrain any third-party embed.
-
-### GitHub import/export
-
-Route handlers get the user's GitHub token from Clerk (`clerkClient` OAuth access token), then hand it to the Inngest function. Import clears the project's files first (`api.system.cleanup`), then walks the repo tree with Octokit; binary files are detected with `isbinaryfile` and stored in Convex file storage (`storageId`) rather than as text `content`. Export creates the repo and pushes, reading binaries back out via storage URLs. Status is mirrored onto the project row for the UI.
-
-### Data model
-
-`convex/schema.ts`: `users` (Clerk mirror keyed by `clerkId`, lowercased `email`; upserted by `users.store` from `UserSync` in `<Providers>` — the email comes from the Clerk session-token claims, never the client), `projectContributors` (invites by email: always `pending` until the invitee ACCEPTS — email must match the verified Clerk token — then `active` with `userId`; accept/decline on the home page or `/invites/[inviteId]`; managed in `convex/contributors.ts`), `presence` (one row per project+user with the active `fileId` and `lastSeenAt`; heartbeated by `usePresence` inside `<PresenceBar>` — staleness is judged client-side because queries don't re-run as time passes), `projects` (owner, import/export status, WebContainer `settings`), `files` (flat rows with `parentId` forming the tree; text in `content` *or* binary in `storageId`), `conversations`, `messages` (`status`, and a `steps` array driving the agent progress UI). Keep queries index-backed: `by_owner`, `by_project`, `by_parent`, `by_project_parent`, `by_conversation`, `by_project_status`. `convex/_generated/` is auto-generated — never edit it.
+- **Security design, runbook and threat model: `docs/security/byok.md`.** Read it before touching key handling. Tests: `npm test`.
+- Keys are saved only through `POST /api/ai-keys`: tested against the provider, AES-256-GCM encrypted with a versioned keyring (`server/key-crypto.ts`, `server/secrets.ts`), stored as ciphertext + `last4` via `api.aiCredentials.saveKey` **as the user** (Clerk session via `userConvexClient()`; the owner is `ctx.auth`, never an argument). `convex/aiKeys.ts` (browser) only lists (no ciphertext) and deletes. Never log a key or return it from a route or an Inngest step.
+- Secrets have one purpose each and none is derived from another: `AI_KEYS_ENCRYPTION_KEY` (+ `_VERSION`, `_OLD_KEYS` during rotation), `AI_PROXY_TOKEN_SIGNING_KEY`, `AI_CREDENTIALS_CONVEX_KEY` (Next.js + Convex; gates `convex/aiCredentials.ts`), `AI_KEY_ROTATION_CONVEX_KEY` (rotation only, never in the runtime). `src/instrumentation.ts` validates them; production fails closed.
+- Editor routes: `await resolveModel(userId)` → AI SDK `languageModel` with the decrypted key. They are rate-limited and output-capped via `server/ai-limits.ts`.
+- Agents (agent-kit): `createAgentModel(definition, { userId, projectId, runId }, opts)`. agent-kit calls go through `step.ai.infer` (Inngest's servers), so the model points at `/api/ai-proxy/[provider]/…` with a 5-minute `abpt1.` capability bound to user + provider + model + project + run + jti. The proxy verifies it, calls `aiCredentials.consumeProxyToken` (run still processing, same project, still a member, replay budget), rate-limits, caps output tokens, and replaces provider error bodies. Keep all of that; the proxy only forwards the exact chat endpoints.
+- `message/sent` carries `userId`: the agent runs on the SENDER's model and key.
+- Prompts are written once as sections in `prompts/` and rendered per profile (`claude` → XML tags, others → markdown); editor output goes through `cleanCodeOutput`, agent text through `stripThinking`.
+- Dev only (`NODE_ENV === "development"`): `AI_ALLOW_ENV_KEYS=true` falls back to the app's provider keys; `AI_DEFAULT_MODEL` overrides the default model.
+- Logging: AI code logs errors only through `logAiError` (`server/safe-log.ts`, metadata only). Sentry collects no bodies, frame variables, AI prompts or auth headers, and `sentryScrubHooks` (`src/lib/sentry-scrub.ts`) runs on everything. Don't loosen these.
+- Fetches to a user-supplied URL (Ollama) go through `assertSafeOllamaUrl` and `safeFetch` (no redirects; production DNS-pinned private-IP check).
 
 ## Structure & boundaries
 
 - `src/app/` — routes only. `/`, `/projects/[projectId]` (the IDE), and `api/{inngest,messages,quick-edit,suggestion,github/{import,export}}`. Pages delegate to `src/features/`.
-- `src/features/<name>/` — the unit of organization: `auth`, `projects`, `editor`, `conversations`, `preview`. Each has some of `views/`, `components/`, `hooks/`, `layouts/`, `store/`, `extensions/`, `prompts/`, `schemas/`, `inngest/`. New feature code belongs here, not in `app/` or a shared folder. Note that Inngest *functions* live with their feature while the *client* is shared in `src/inngest/client.ts`.
+- `src/features/<name>/` — the unit of organization: `auth`, `projects`, `editor`, `conversations`, `preview`, `ai`. Each has some of `views/`, `components/`, `hooks/`, `layouts/`, `store/`, `extensions/`, `prompts/`, `schemas/`, `inngest/`. New feature code belongs here, not in `app/` or a shared folder. Note that Inngest *functions* live with their feature while the *client* is shared in `src/inngest/client.ts`.
 - `src/components/ui/` — shadcn primitives; prefer regenerating with the `shadcn` CLI over hand-editing. `src/components/ai-elements/` — chat UI blocks.
 - `src/proxy.ts` — Clerk middleware (Next.js 16's replacement for `middleware.ts`). Its matcher must not catch the Sentry tunnel route `/monitoring`.
 - `src/lib/` — shared clients (`convex-client.ts`, `firecrawl.ts`) and `utils.ts` (`cn`).
@@ -84,7 +85,7 @@ Route handlers get the user's GitHub token from Clerk (`clerkClient` OAuth acces
 ## Gotchas
 
 - `<Providers>` uses `ConvexProviderWithAuth` with our own `useAuthFromClerk` (`src/features/auth/hooks/`), not `ConvexProviderWithClerk`. The only difference is that the Clerk plan claim `pla` is in its dependencies, so Convex re-authenticates when the plan changes and Pro gates update without a reload. Don't swap it back.
-- `convex/auth.config.ts` throws at import time if `CLERK_JWT_ISSUER_DOMAIN` is missing. `.env.local` also needs Clerk, Convex, `ANUBITHIC_STUDIO_CONVEX_INTERNAL_KEY`, model provider keys, Firecrawl, and Sentry.
+- `convex/auth.config.ts` throws at import time if `CLERK_JWT_ISSUER_DOMAIN` is missing. `.env.local` also needs Clerk, Convex, `ANUBITHIC_STUDIO_CONVEX_INTERNAL_KEY`, `AI_KEYS_ENCRYPTION_KEY`, `AI_PROXY_TOKEN_SIGNING_KEY` and `AI_CREDENTIALS_CONVEX_KEY` (each `openssl rand -base64 32`; the credentials key must also be set on the Convex deployment; never change the encryption key without the rotation runbook), Firecrawl, and Sentry. Provider keys are only needed with `AI_ALLOW_ENV_KEYS=true`.
 - `ANUBITHIC_STUDIO_CONVEX_INTERNAL_KEY` must be set in *both* the Next.js env and the Convex deployment env, or every server→Convex call fails.
 - Sentry wraps `next.config.ts` via `withSentryConfig`; instrumentation is in `src/instrumentation*.ts`.
 - CI has only a Gemini PR-review workflow (`.github/workflows/code-review.yml`, triggered by a `/gemini-review` comment) — no build or test gate.
