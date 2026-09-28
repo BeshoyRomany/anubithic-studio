@@ -25,103 +25,92 @@
 
 ## 📖 Overview
 
-Anubithic Studio is a Replit / Lovable-style IDE that runs entirely in the browser. It has a VS Code-style file explorer, a CodeMirror editor with inline AI, an **agentic chat that reads and edits your project files**, a **live preview and terminal powered by WebContainers**, and **GitHub import/export**. Type a prompt on the home page and you get a new project, a conversation, and an agent already writing the code. The files show up in your editor as they are written.
+Anubithic Studio is an AI-powered code studio that runs entirely in your browser. Describe the app you want, and an AI agent builds it for you file by file while you watch. You can then run it instantly, refine it together with your team, and publish it to GitHub, all from one tab with nothing to install.
 
-The agent runs in the background as durable Inngest jobs. Every file it creates, edits, renames or deletes is a Convex mutation, so the explorer, the open tabs and your teammates' screens all update in real time with no polling and no refresh.
+**Built for teams.** Invite your teammates to a project and build together in real time. You can see who's online, which file each person is working on, and every change the moment it happens, whether a teammate made it or the AI did.
 
-AI runs on **your own key (Bring Your Own Key)**. You pick one model (Claude, GPT, Gemini, or a local Ollama model) and it drives every AI feature. Keys are verified against the provider, encrypted with AES-256-GCM, and never sent back to the browser.
+**Your AI, your choice.** Connect your own Claude or GPT account, or run a model privately on your own machine. One choice powers every AI feature in the studio, and your keys stay protected.
 
-**Design:** The look is built around the Anubis mark, with an animated logo loader, a day/night home scene, and full **dark, light and system** theming that also applies to the editor, the terminal and the canvas.
+**Design:** The studio is built around the Anubis mark. It has an animated logo, a home scene that follows the time of day, and polished **dark, light and system** themes throughout.
 
 ---
 
 ## ✨ Features
 
+### 👥 Team Collaboration *(Pro)*
+
+- **Invite anyone**: send an invite by email, even to people who haven't signed up yet
+- **Clear roles**: owners, admins and contributors each get the right level of control, so the people who build and the people who manage can work side by side
+- **See who's here**: a live status bar shows who is in the project and which file each person has open
+- **Follow a teammate**: click someone's name to jump straight to the file they're working on
+- **Real-time everything**: edits, new files and AI changes appear for everyone instantly
+
 ### 🤖 AI Coding Agent
 
-- **Prompt-to-project**: describe an app on the home page and a new project (with a generated name) and conversation are created, with the agent already running
-- **Agent tools**: the agent lists, reads, creates, updates, renames and deletes files, creates folders, and scrapes URLs
-- **Live edits**: every tool call is a Convex mutation, so changes appear in your editor as the agent makes them
-- **Step-by-step progress**: tool activity streams into the chat as steps ("Scanning project files...", running / done / error)
-- **Cancel anytime**: stop a running agent mid-task
-- **Auto-titled conversations**: a small secondary agent names each conversation from its first message
-- **Conversation history**: multiple conversations per project, with a history dialog and delete support
-- **Rich chat rendering**: Markdown, syntax-highlighted code, math, Mermaid diagrams and CJK text
-- **Docs from the web**: URLs in a prompt are scraped with Firecrawl and fed to the model as context
+- **From idea to app in one prompt**: describe what you want and a new project is created with the AI already building it
+- **Works like a real developer**: it explores your project, reads your code, and creates, edits, reorganizes and cleans up files on its own
+- **Watch it work**: every change appears live in your editor, and each step is shown in the chat as it happens
+- **Always in control**: stop the AI at any moment
+- **Organized conversations**: keep multiple chats per project, each named automatically, and come back to any of them later
+- **Beautiful answers**: formatted text, highlighted code, math and diagrams right in the chat
+- **Learns from any link**: paste a docs page or article and the AI reads it before answering
 
 ### ✍️ AI in the Editor
 
-- **Inline suggestions**: ghost-text completions while you type, accepted with `Tab`
-- **Quick Edit** (`⌘/Ctrl + K`): select code, describe the change, and the model rewrites the selection in place
-- **Selection toolbar**: "Quick Edit" or "Add to Chat" on any selection
-- **URL-aware**: quick edits and suggestions also pull in scraped docs for any link in the instruction
+- **Smart autocomplete**: the AI suggests the next lines as you type; press `Tab` to accept
+- **Quick Edit**: select code, say what to change, and it's rewritten in place
+- **Ask about any selection**: send highlighted code straight to the chat
 
-### 🔑 Bring Your Own Key (BYOK)
+### 🔑 Bring Your Own AI
 
-- **One model drives everything**: the model you pick powers the agent, quick edit and suggestions
-- **Supported models**: Claude Opus 5.5 / Sonnet 5 / Haiku 4.5, GPT-5.5 / GPT-5.4 mini, Gemini 3.8 Flash. Each one passed a live multi-turn tool-calling test with the agent.
-- **Local models**: connect your own **Ollama** instance; the app reads the model's capabilities and recommends tool-capable coding models by memory size
-- **Verified before saving**: keys are tested against the provider first
-- **Encrypted at rest**: AES-256-GCM with a versioned keyring and key-rotation script; only the last 4 characters are ever shown
-- **Scoped agent access**: the agent never sees your key. It calls a server proxy with a short-lived signed token bound to you, the model, the project and the run.
-- **Rate limits & output caps** on every AI route, plus an audit log of key changes
-- **Public security page** at `/security` explaining how keys are handled
+- **Claude & GPT models**: choose from Anthropic's Claude family or OpenAI's GPT family, from fast and low-cost to the most capable. Each is tested with the full agent workflow before it's offered, so you can switch models without losing any feature.
+- **One choice, everywhere**: the model you pick powers the agent, autocomplete and Quick Edit
+- **Run it locally**: connect a model on your own computer for full privacy, with suggestions on which models suit your hardware
+- **Pay only for what you use**: usage goes to your own AI account, at the provider's prices
+- **Your keys stay safe**: every key is checked before it's saved, encrypted, never shown again, and never handed to the AI
+- **Transparent security**: a public security page explains exactly how your keys are protected
 
-### 🖥️ IDE & Editor
+### 🖥️ Code Editor
 
-- **CodeMirror 6 editor**: JavaScript/TypeScript, HTML, CSS, JSON, Markdown, Python and Java, with minimap, indentation markers and format shortcut (`Shift + Alt + F`)
-- **Tabs**: VS Code-style tabs, including preview tabs, with breadcrumbs for the active file
-- **Resizable layout**: chat, explorer, editor and preview panes
-- **Auto-reveal**: the explorer expands to and highlights whichever file is active
-- **Theme-aware**: editor and terminal switch with the app theme
+- **A familiar, professional editor**: syntax highlighting for the most popular web and backend languages, a code minimap and one-key formatting
+- **Tabs like your desktop IDE**: open, switch and preview files, with a path bar for the current file
+- **Your layout, your way**: resize the chat, file tree, editor and preview panels
+- **Never lose your place**: the file tree always follows the file you're working on
 
 ### 📁 File Explorer
 
-- **Full file tree**: create, rename and delete files and folders inline
-- **Drag and drop**: move files and folders around the tree
-- **Binary file support**: images and other binaries are kept in Convex file storage
-- **File-type icons** for every common extension
+- **Manage your project visually**: create, rename and delete files and folders right in the tree
+- **Drag and drop**: reorganize your project by dragging files and folders
+- **Images and assets included**: not just code, so your whole project lives in one place
+- **Instantly recognizable**: icons for every common file type
 
 ### ▶️ Live Preview & Terminal
 
-- **WebContainers**: runs Node.js in the browser, so `npm install` and `npm run dev` happen on the client
-- **Live preview**: the dev server's URL loads in an embedded preview and reloads on changes
-- **Integrated terminal**: xterm.js showing install and dev-server output
-- **Configurable commands**: the install and dev commands can be changed per project
+- **Run your app instantly**: install and launch your project right in the browser, with no setup and no server
+- **See changes live**: the preview refreshes as you or the AI edit code
+- **Built-in terminal**: follow what your app is doing as it installs and runs
+- **Adjustable**: change how your project installs and starts
 
 ### 🐙 GitHub Import & Export *(Pro)*
 
-- **Import any repo**: pull a GitHub repository into a new project; text and binary files are both kept
-- **Export to a new repo**: push a project to a new public or private repo with a description
-- **Background jobs with status**: import/export run in Inngest with live status in the UI, and export can be cancelled
-- **Uses your GitHub login**: OAuth tokens come from Clerk, with no separate GitHub setup
-
-### 👥 Team Collaboration *(Pro)*
-
-- **Invite by email**: invite people who haven't signed up yet; they claim the invite when they sign in
-- **Roles**: owner > admin > contributor, checked on every server call
-  - Contributors edit files and chat with the agent
-  - Admins can also rename, export and manage contributors
-  - Only the owner can delete the project or promote/demote admins
-- **Live presence**: a VS Code-style status bar shows who is in the project and which file each person has open. Click a teammate to follow them to their file.
-- **Shared projects** appear in each member's project list
+- **Bring in any repository**: import a GitHub repo and start working on it in seconds
+- **Publish in one click**: export your project to a new public or private GitHub repository
+- **Progress you can see**: follow imports and exports as they run, and cancel an export anytime
+- **No extra setup**: just sign in with GitHub
 
 ### 🏠 Projects & Home
 
-- **Home page**: prompt box, recent-projects grid and a day/night scene
-- **Command palette** (`⌘/Ctrl + K`): search and jump between projects
-- **Keyboard shortcuts**: `⌘/Ctrl + I` import from GitHub, `⌘/Ctrl + J` focus the prompt
-- **Rename & delete** projects and conversations, with confirmation
-- **Custom 404 and error pages**
+- **Start from a prompt**: the home page gets you from idea to project in one step
+- **Pick up where you left off**: your recent projects are always one click away
+- **Keyboard-first**: a command palette and shortcuts for searching projects, importing and prompting
+- **Stay organized**: rename and delete projects and conversations with confirmation
 
 ### 🔐 Platform
 
-- **Clerk authentication** with social login (including GitHub)
-- **Clerk Billing**: Pro-plan gates enforced on the server; the UI updates without a reload when the plan changes
-- **Three trust zones**: browser → Convex (user auth), browser → route handlers (Clerk), server → Convex (internal key)
-- **Error tracking**: Sentry with body, prompt and secret scrubbing, tunneled through `/monitoring`
-- **Fail-closed startup**: production refuses to boot if any security secret is missing or malformed
-- **Security test suite**: Vitest + convex-test covering encryption, proxy tokens, logging and shared-project access
+- **Easy sign-in**: email or social login, including GitHub
+- **Free and Pro plans**: upgrade and Pro features unlock instantly, with no reload
+- **Secure by design**: access to every project is checked on the server, for every action
+- **Reliable**: errors are monitored so problems get fixed fast, without collecting your code or prompts
 
 ---
 
@@ -136,7 +125,7 @@ AI runs on **your own key (Bring Your Own Key)**. You pick one model (Claude, GP
 | **Auth & billing** | Clerk (auth, Clerk Billing, GitHub OAuth tokens) |
 | **Background jobs** | Inngest (durable steps, cancellation, concurrency) |
 | **AI agent** | `@inngest/agent-kit` (multi-tool agent network) |
-| **AI models** | Vercel AI SDK: Anthropic, OpenAI, Google Gemini, Ollama |
+| **AI models** | Vercel AI SDK: Anthropic (Claude), OpenAI (GPT), Ollama |
 | **Web scraping** | Firecrawl |
 | **Editor** | CodeMirror 6 + minimap, indentation markers |
 | **Runtime preview** | WebContainers + xterm.js |
@@ -155,7 +144,7 @@ AI runs on **your own key (Bring Your Own Key)**. You pick one model (Claude, GP
 
 - **Node.js** ≥ 20 and npm
 - Accounts for **Convex**, **Clerk**, **Inngest**, **Firecrawl** and **Sentry**
-- An API key from at least one AI provider (Anthropic, OpenAI or Google), **or** a local [Ollama](https://ollama.com) install
+- An API key from at least one AI provider (Anthropic or OpenAI), **or** a local [Ollama](https://ollama.com) install
 
 ### 2. Clone and install
 
@@ -204,7 +193,6 @@ INNGEST_SIGNING_KEY=
 # AI_ALLOW_ENV_KEYS=true
 # ANTHROPIC_API_KEY=
 # OPENAI_API_KEY=
-# GOOGLE_API_KEY=
 ```
 
 Set `CLERK_JWT_ISSUER_DOMAIN`, `ANUBITHIC_STUDIO_CONVEX_INTERNAL_KEY` and `AI_CREDENTIALS_CONVEX_KEY` on the **Convex deployment** as well:
@@ -309,6 +297,17 @@ Route handlers never do the long work. They validate with Zod, write a placehold
 ### How the agent uses your key without seeing it
 
 agent-kit model calls are executed by Inngest's servers, so they can't hold your provider key. Instead the model points at `/api/ai-proxy/[provider]/…` with a **5-minute signed capability** bound to user + provider + model + project + run. The proxy checks it against Convex (the run is still processing, you are still a member, the replay budget is not used up), decrypts your key for that one request, enforces rate and output-token limits, and replaces provider error bodies before anything is logged.
+
+### Security highlights
+
+- **Key encryption**: AES-256-GCM with a random IV per key, AAD bound to user + provider, and a versioned keyring with a rotation script (`npm run ai:rotate-keys`). Only the last 4 characters are ever returned.
+- **Least privilege**: AI credential functions in Convex need a dedicated key *and* the user's Clerk session; each secret has one purpose, and none is derived from another.
+- **Limits**: per-user rate limits and output-token caps on every AI route, request body size limits, and at most 2 agent runs in flight per user.
+- **Audit**: every key save, replace, delete and re-encryption is logged, without any key material.
+- **Safe logging**: AI errors are logged as metadata only, and Sentry scrubs bodies, prompts, keys and auth headers (tunneled through `/monitoring`).
+- **Fail-closed startup**: production refuses to boot if a security secret is missing or malformed.
+- **Local models**: user-supplied Ollama URLs are checked against private-IP and redirect attacks.
+- **Tests**: Vitest + convex-test cover encryption, proxy tokens, logging and shared-project access. The full threat model is in [`docs/security/byok.md`](./docs/security/byok.md).
 
 ### Realtime updates
 
