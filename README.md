@@ -4,7 +4,7 @@
 
 # 𓃣 Anubithic Studio
 
-**A browser-based AI IDE: describe an app, watch an agent build it file by file, run it live in the browser, and ship it to GitHub.**
+**The collaborative AI code studio: build apps together with your team and an AI agent in real time, run them instantly in the browser, and ship them to GitHub.**
 
 <p>
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" />
