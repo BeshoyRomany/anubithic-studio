@@ -9,7 +9,7 @@ import { convex } from "@/lib/convex-client";
 
 const requestSchema = z.object({
   conversationId: z.string(),
-  message: z.string(),
+  message: z.string().trim().min(1),
 });
 
 export async function POST(request: Request) {
@@ -29,8 +29,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json();
-  const { conversationId, message } = requestSchema.parse(body);
+  const parsed = requestSchema.safeParse(await request.json().catch(() => null));
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Message is required" }, { status: 400 });
+  }
+
+  const { conversationId, message } = parsed.data;
 
   //Call convex mutation query
   const conversation = await convex.query(api.system.getConversationById, {
@@ -109,7 +114,14 @@ export async function POST(request: Request) {
   //2- Trigger Inngest to process the message
   const event = await inngest.send({
     name: "message/sent",
-    data: { messageId: assistantMessageId, conversationId, projectId, message },
+    //userId = who pays: the agent runs on the SENDER's model and key
+    data: {
+      messageId: assistantMessageId,
+      conversationId,
+      projectId,
+      message,
+      userId,
+    },
   });
 
   //return

@@ -1,4 +1,4 @@
-import ky from "ky";
+import ky, { HTTPError } from "ky";
 import { toast } from "sonner";
 import {
   SuggestionRequest,
@@ -27,6 +27,13 @@ export const fetcher = async (
     return validatedResponse.suggestion || null;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
+      return null;
+    }
+    // No key, or rate-limited: stay quiet instead of toasting on every pause
+    if (
+      error instanceof HTTPError &&
+      (error.response.status === 402 || error.response.status === 429)
+    ) {
       return null;
     }
     console.error("Fetcher error details:", error);

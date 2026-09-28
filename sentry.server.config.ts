@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { sentryScrubHooks } from "./src/lib/sentry-scrub";
 
 Sentry.init({
   dsn: "https://27c0eb69dcce400d06fcb90b158dd1f8@o4511886204338176.ingest.de.sentry.io/4511886265155664",
@@ -13,12 +14,19 @@ Sentry.init({
   // Enable logs to be sent to Sentry
   enableLogs: true,
 
+  // Privacy: users' API keys and code pass through this server (Bring Your Own Key).
+  // Nothing that could hold them is collected; sentryScrubHooks is the second net.
   dataCollection: {
-    // To disable sending user data and HTTP bodies, uncomment the lines below. For more info visit:
-    // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#dataCollection
-    // userInfo: false,
-    // httpBodies: [],
+    httpBodies: [], // request/response bodies (e.g. POST /api/ai-keys carries the key)
+    stackFrameVariables: false, // local variables of a crashing frame (e.g. a decrypted key)
+    genAI: { inputs: false, outputs: false }, // prompts and answers are the user's code
+    cookies: false,
+    httpHeaders: {
+      request: { deny: ["authorization", "x-api-key", "x-goog-api-key", "cookie"] },
+      response: { deny: ["set-cookie"] },
+    },
   },
+  ...sentryScrubHooks,
   integrations: [
     Sentry.vercelAIIntegration(),
     Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),

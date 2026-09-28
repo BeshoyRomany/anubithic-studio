@@ -5,6 +5,7 @@ import {
   CheckIcon,
   CopyIcon,
   HistoryIcon,
+  KeyRoundIcon,
   LoaderIcon,
   MessageSquarePlusIcon,
   PlusIcon,
@@ -34,6 +35,8 @@ import {
 } from "@/components/ai-elements/prompt-input";
 
 import { Button } from "@/components/ui/button";
+import { ModelPicker } from "@/features/ai/components/model-picker";
+import { ApiKeysDialog } from "@/features/ai/components/api-keys-dialog";
 import {
   Empty,
   EmptyContent,
@@ -83,6 +86,9 @@ export const ConversationSidebar = ({
 
   const [conversationsHistoryOpen, setConversationsHistoryOpen] =
     useState(false);
+
+  //"AI models & keys" panel, opened from a "missing key" reply
+  const [keysOpen, setKeysOpen] = useState(false);
 
   //Hooks -> fetch all the conversations
   const conversations = useConversations(projectId);
@@ -150,6 +156,9 @@ export const ConversationSidebar = ({
       return;
     }
 
+    // Never send an empty message (e.g. a submit bubbling up from a dialog)
+    if (!message.text?.trim()) return;
+
     // If no active conversation exists, create a new one on the fly before sending the message
     let conversationId = activeConversationId;
 
@@ -176,6 +185,7 @@ export const ConversationSidebar = ({
 
   return (
     <>
+      <ApiKeysDialog open={keysOpen} onOpenChange={setKeysOpen} />
       <ConversationsHistoryDialog
         projectId={projectId}
         open={conversationsHistoryOpen}
@@ -316,6 +326,17 @@ export const ConversationSidebar = ({
                           message.status !== "cancelled" && (
                             <MessageResponse>{message.content}</MessageResponse>
                           )}
+
+                        {message.errorCode === "no_key" && (
+                          <button
+                            type="button"
+                            className="mt-1 flex w-fit items-center gap-1.5 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                            onClick={() => setKeysOpen(true)}
+                          >
+                            <KeyRoundIcon className="size-3.5" />
+                            Open AI settings
+                          </button>
+                        )}
                       </MessageContent>
 
                       {message.role === "assistant" &&
@@ -350,7 +371,9 @@ export const ConversationSidebar = ({
                   />
                 </PromptInputBody>
                 <PromptInputFooter>
-                  <PromptInputTools />
+                  <PromptInputTools>
+                    <ModelPicker />
+                  </PromptInputTools>
                   <PromptInputSubmit
                     // Keep submit enabled during processing so it acts as a cancel button
                     disabled={isProcessing ? false : !input}

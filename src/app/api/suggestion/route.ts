@@ -1,55 +1,71 @@
 import { generateText, Output } from "ai";
 import { NextResponse } from "next/server";
-// import { anthropic } from "@ai-sdk/anthropic";
-import { openai } from "@ai-sdk/openai";
+import { auth } from "@clerk/nextjs/server";
+
 import {
   SuggestionAIResponseSchema,
-  SuggestionRequest,
-} from "../../../features/editor/schemas/suggestion-schema";
-import { getAnthropicSuggestionPrompt } from "@/features/editor/prompts/anthropic-prompt";
+  SuggestionRequestSchema,
+} from "@/features/editor/schemas/suggestion-schema";
+import { buildSuggestionPrompt } from "@/features/ai/prompts/editor";
+import { NoKeyError, resolveModel } from "@/features/ai/server/resolve-model";
+import { cleanCodeOutput } from "@/features/ai/utils/clean-output";
+import { AI_LIMITS } from "@/features/ai/server/ai-limits";
+import { readJsonBody } from "@/features/ai/server/request-body";
+import { logAiError } from "@/features/ai/server/safe-log";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const context: { route: string; provider?: string; model?: string } = {
+    route: "suggestion",
+  };
   try {
-    const {
-      fileName,
-      code,
-      currentLine,
-      previousLines,
-      textBeforeCursor,
-      textAfterCursor,
-      nextLines,
-      lineNumber,
-    }: SuggestionRequest = await request.json();
+    const { userId } = await auth();
 
-    if (!code) {
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const limits = AI_LIMITS.suggestion;
+    const body = await readJsonBody(request, limits.maxBodyBytes);
+    if (!body.ok) {
+      return NextResponse.json(
+        { error: "Invalid request" },
+        { status: body.status },
+      );
+    }
+
+    const parsed = SuggestionRequestSchema.safeParse(body.value);
+
+    if (!parsed.success || !parsed.data.code) {
       return NextResponse.json({ error: "Code is required" }, { status: 400 });
     }
-    const prompt = getAnthropicSuggestionPrompt({
-      fileName,
-      code,
-      currentLine,
-      previousLines: previousLines || "", //beginning of the file
-      textBeforeCursor,
-      textAfterCursor,
-      nextLines: nextLines || "", //end of the file
-      lineNumber: lineNumber,
-    });
 
-    // const { output } = await generateText({
-    //   model: anthropic("claude-haiku-4-5"),
-    //   output: Output.object({ schema: SuggestionAIResponseSchema }),
-    //   prompt: prompt,
-    // });
+    const limited = await rateLimit(`ai-suggestion:${userId}`, {
+      limit: limits.requestsPerWindow,
+      windowMs: limits.windowMs,
+    });
+    if (limited) return limited;
+
+    const { definition, languageModel } = await resolveModel(userId);
+    context.provider = definition.provider;
+    context.model = definition.apiModelId;
 
     const { output } = await generateText({
-      model: openai("gpt-4.1-mini"),
+      model: languageModel,
       output: Output.object({ schema: SuggestionAIResponseSchema }),
-      prompt: prompt,
+      prompt: buildSuggestionPrompt(definition.promptProfile, parsed.data),
+      maxOutputTokens: limits.maxOutputTokens,
     });
 
-    return NextResponse.json({ suggestion: output.suggestion });
+    return NextResponse.json({
+      suggestion: cleanCodeOutput(output.suggestion),
+    });
   } catch (error) {
-    console.error("Suggestion error:", error);
+    if (error instanceof NoKeyError) {
+      return NextResponse.json({ error: error.message }, { status: 402 });
+    }
+    // Metadata only: AI SDK errors carry the user's code and provider responses
+    logAiError(error, context);
     return NextResponse.json(
       { error: "Failed to generate suggestion" },
       { status: 500 },
