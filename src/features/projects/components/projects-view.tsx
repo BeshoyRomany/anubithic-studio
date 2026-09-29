@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { SignInButton, SignOutButton } from "@clerk/nextjs";
 import { Poppins } from "next/font/google";
@@ -24,6 +25,12 @@ const font = Poppins({
 });
 
 const PROMPT_ID = "home-prompt";
+
+const FOOTER_LINKS = [
+  { href: "/privacy", label: "Privacy Policy" },
+  { href: "/terms", label: "Terms of Service" },
+  { href: "/security", label: "Security" },
+];
 
 const AUTH_BUTTON_CLASS =
   "flex items-center gap-2 rounded-full border border-foreground/10 bg-white/55 dark:bg-foreground/3 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-logo/50 hover:text-foreground";
@@ -157,6 +164,19 @@ export const ProjectsView = () => {
             <RecentProjectsGrid onViewAll={() => setCommandDialogOpen(true)} />
           </Authenticated>
         </div>
+
+        {/* Public legal pages, also linked from the GitHub Marketplace listing */}
+        <footer className="relative z-10 mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {FOOTER_LINKS.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            >
+              {label}
+            </Link>
+          ))}
+        </footer>
       </main>
     </>
   );
