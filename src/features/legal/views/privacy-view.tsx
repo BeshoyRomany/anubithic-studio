@@ -110,6 +110,22 @@ export const PrivacyView = () => (
       <p>Each service only receives what it needs for its part.</p>
     </LegalSection>
 
+    <LegalSection title="Where your data is stored">
+      <LegalList>
+        <li>
+          Your account and project data are stored by Convex in the European
+          Union (Ireland).
+        </li>
+        <li>Error reports are stored by Sentry in the European Union (Germany).</li>
+        <li>
+          Clerk, Vercel, Inngest and Firecrawl are based in the United States,
+          as are Anthropic, OpenAI and Google, so data they handle may be
+          processed there.
+        </li>
+        <li>With a local model, your prompts go to your own computer.</li>
+      </LegalList>
+    </LegalSection>
+
     <LegalSection title="Cookies and browser storage">
       <p>
         We use the sign-in cookies Clerk needs to keep you logged in, and

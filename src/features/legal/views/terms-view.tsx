@@ -65,6 +65,12 @@ export const TermsView = () => (
         Review them before you rely on them, especially before you deploy or
         share the code.
       </p>
+      <p>
+        To report a wrong, harmful or unexpected answer, use the flag button
+        under the AI&apos;s reply in the chat. It opens an issue on our public
+        GitHub repository. You can also report the app to GitHub from our
+        GitHub Marketplace listing.
+      </p>
     </LegalSection>
 
     <LegalSection title="Acceptable use">

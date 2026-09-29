@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   CheckIcon,
   CopyIcon,
+  FlagIcon,
   HistoryIcon,
   KeyRoundIcon,
   LoaderIcon,
@@ -56,6 +57,14 @@ import {
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { ConversationsHistoryDialog } from "./conversation-history-dialog";
 import Image from "next/image";
+
+// Feedback on AI answers (GitHub Marketplace Developer Agreement 3.4). Nothing from the chat is sent.
+const REPORT_AI_PROBLEM_URL = `https://github.com/BeshoyRomany/anubithic-studio/issues/new?${new URLSearchParams(
+  {
+    title: "AI answer problem: ",
+    body: "What did you ask, and what was wrong with the answer?\n\nModel used:\n\nPlease don't paste API keys or private code.",
+  },
+)}`;
 
 interface ConversationSidebarProps {
   projectId: Id<"projects">;
@@ -351,6 +360,19 @@ export const ConversationSidebar = ({
                               label="Copy"
                             >
                               <CopyIcon className="size-3" />
+                            </MessageAction>
+                            <MessageAction
+                              onClick={() => {
+                                window.open(
+                                  REPORT_AI_PROBLEM_URL,
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                );
+                              }}
+                              label="Report a problem with this answer"
+                              tooltip="Report a problem with this answer"
+                            >
+                              <FlagIcon className="size-3" />
                             </MessageAction>
                           </MessageActions>
                         )}
